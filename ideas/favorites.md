@@ -48,6 +48,8 @@
 - **catch:** Chaser/Upflow/Collectly קיימים → הבידול = AI-personalization ופשטות
   ל-SMB-קטן; דורש אינטגרציה לחשבונאות (QuickBooks/Xero) או קלט-ידני/CSV ב-MVP.
 - **צעד הבא:** scaffold + ליבת-AI לגבייה + אינטגרציית-תשלום/חשבונית.
+- **📄 איפיון מלא:** [`invoicechaser/README.md`](../invoicechaser/README.md)
+  (PRD + ארכיטקטורה · Beachhead: סוכנויות דיגיטל · ציון מלא 8.6/10).
 
 ---
 
