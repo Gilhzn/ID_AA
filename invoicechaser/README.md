@@ -5,7 +5,26 @@
 > ומקצרת את הזמן עד לתשלום. אתה גובה יותר, מהר יותר, בלי לרדוף ידנית ובלי להרוס
 > יחסים עם לקוחות.
 
-**גרסה:** 1.0 · **תאריך:** מאי 2026 · **שפה:** עברית · **סטטוס:** 🏆 רעיון נבחר לבנייה
+**גרסה:** 1.0 · **תאריך:** מאי 2026 · **שפה:** עברית · **סטטוס:** 🏆 נבחר — **MVP נבנה ועובד**
+
+---
+
+## 🛠️ מצב בנייה — יש מוצר עובד (לא רק איפיון)
+
+| רכיב | מיקום | מצב |
+|------|--------|-----|
+| מנוע גבייה (הסלמה + guardrails) | [`core/src`](core/) | ✅ רץ offline |
+| ניסוח תזכורות עם Claude + fallback | `core/src/ai-adapter.mjs`, `llm-claude.mjs` | ✅ |
+| מצב-מפעיל (stateful: outbox/sent/pay/dispute/impact) | `core/src/operator*.mjs` | ✅ |
+| חיוב success-fee + דוח-חיוב | `core/src/billing.mjs` | ✅ |
+| שליחת אימייל (Resend, dry-run בטוח) | `core/src/email.mjs` | ✅ |
+| Dashboard web + JSON API | `core/src/server.mjs` | ✅ אפס-תלויות |
+| דוח-שחזור-תזרים (נשק-מכירה) | `core/src/report.mjs` | ✅ |
+| ערכת-Concierge (playbook + טמפלייטים + הסכם) | [`gtm/`](gtm/) | ✅ |
+| בדיקות | `core/test/run-tests.mjs` | ✅ **33 ירוקות** |
+
+הרצה מהירה: `cd core && node test/run-tests.mjs` · `npm run demo` · `node src/server.mjs ws.json`.
+פרטים: [`core/README.md`](core/README.md).
 
 ---
 
