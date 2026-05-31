@@ -41,6 +41,44 @@ node test/run-tests.mjs
 - **LLM-ready** — הגדר `ANTHROPIC_API_KEY` וחבר את `draftWithLLM` ב-`ai-adapter.mjs`;
   ה-guardrails נאכפים על פלט-ה-LLM, ויש fallback אוטומטי לתבנית.
 
+## מצב-מפעיל (Operator) — להריץ גבייה אמיתית בפאזת Concierge
+
+המנוע לא רק "חושב" — הוא **זוכר ומודד**. מצב-המפעיל שומר workspace (קובץ JSON,
+בלי שרת) שמחזיק חשבוניות + event-log, ומאפשר להריץ לולאת-גבייה ידנית מקצה-לקצה:
+
+```bash
+WS=workspace.json
+
+# 1) ייבוא חשבוניות של סוכנות
+node src/operator-cli.mjs import $WS agency.csv --name="Pixel & Co." --signer="רותם" --reply="billing@pixelco.example"
+
+# 2) ה-Outbox של היום + ייצוא מיילים מוכנים-לשליחה (.eml)
+node src/operator-cli.mjs outbox $WS --today=2026-05-31 --mode=approval --out=./outbox
+#    -> פותחים את ה-.eml בלקוח-המייל, או מעתיקים מ-index.md ל-Gmail
+
+# 3) מתעדים מה נשלח (כדי לא לשלוח שוב את אותו שלב)
+node src/operator-cli.mjs sent-all $WS --today=2026-05-31
+
+# 4) כשלקוח משלם / מתלונן
+node src/operator-cli.mjs pay     $WS INV-1043 42000 --at=2026-06-04
+node src/operator-cli.mjs dispute $WS INV-1046
+
+# 5) Impact — ההוכחה + בסיס ה-success-fee
+node src/operator-cli.mjs impact $WS --today=2026-06-04
+```
+
+`outbox` מדלג אוטומטית על שלב שכבר נשלח (dedupe), על חשבונית `paid`, ועל
+`disputed`. `impact` מחשב כמה נגבה, כמה "מזכה" (היה באיחור כשנרדף ואז שולם),
+וימים-ממוצע-עד-תשלום — בדיוק מה שצריך לחיוב ה-success-fee ([`../gtm/03`](../gtm/03-pricing-and-agreement.md)).
+
+| קובץ נוסף | תפקיד |
+|------------|--------|
+| `src/store.mjs` | workspace JSON (load/save) — Postgres בעתיד |
+| `src/operator.mjs` | לוגיקת-מפעיל טהורה (outbox/dedupe/impact) |
+| `src/outbox-export.mjs` | ייצוא ל-.eml + index.md |
+| `src/operator-cli.mjs` | CLI לפקודות import/outbox/sent/pay/impact |
+| `src/report.mjs` + `report-cli.mjs` | דוח-שחזור-תזרים (HTML) ל"ניתוח חינם" |
+
 ## הצעד הבא (לא בליבה הזו)
 - מעטפת web (Next.js) + DB (Postgres) לפי [`../docs/09-architecture.md`](../docs/09-architecture.md).
 - שליחת-אימייל אמיתית (Resend/Postmark) + Stripe Payment Links + webhooks.

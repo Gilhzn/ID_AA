@@ -8,6 +8,8 @@ import { enforceGuardrails } from "../src/guardrails.mjs";
 import { generateReminder } from "../src/generator.mjs";
 import { parseCsv, rowsToInvoices } from "../src/csv.mjs";
 import { renderReport } from "../src/report.mjs";
+import { emptyWorkspace } from "../src/store.mjs";
+import { buildOutbox, recordSent, markPaid, markDisputed, computeImpact } from "../src/operator.mjs";
 
 let passed = 0;
 function test(name, fn) {
@@ -134,6 +136,38 @@ test("renders standalone RTL HTML with per-currency totals and no banned phrases
   assert.ok(html.includes("₪18,000")); // ILS total
   assert.ok(html.includes("$9,500")); // USD total kept separate (no bad cross-currency sum)
   assert.ok(!/legal action|תביעה משפטית/.test(html)); // guardrails hold in samples
+});
+
+console.log("operator:");
+function wsWith(invoices) {
+  const ws = emptyWorkspace({ businessName: "Test", signerName: "רותם", replyTo: "x@test.example" });
+  ws.invoices = invoices;
+  return ws;
+}
+test("outbox dedupes a step once it was sent", () => {
+  const ws = wsWith([inv(7)]);
+  const t = today(7);
+  let box = buildOutbox(ws, t, "auto");
+  assert.equal(box.length, 1);
+  assert.equal(box[0].decision.step.key, "overdue_7");
+  recordSent(ws, "INV-1", "overdue_7", t);
+  box = buildOutbox(ws, t, "auto"); // same day, same step -> nothing new
+  assert.equal(box.length, 0);
+});
+test("disputed invoice never enters the outbox", () => {
+  const ws = wsWith([inv(7)]);
+  markDisputed(ws, "INV-1", today(7));
+  assert.equal(buildOutbox(ws, today(7), "auto").length, 0);
+});
+test("impact credits an overdue invoice paid after first reminder", () => {
+  const ws = wsWith([inv(7)]);
+  recordSent(ws, "INV-1", "overdue_7", today(7)); // chased while overdue
+  markPaid(ws, "INV-1", 18000, today(12)); // paid 5 days later
+  const m = computeImpact(ws, today(12));
+  assert.equal(m.collected, 18000);
+  assert.equal(m.creditable, 18000);
+  assert.equal(m.creditableCount, 1);
+  assert.equal(m.avgDaysToPay, 5);
 });
 
 console.log(`\n${passed} checks passed.`);
