@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>דוח שחזור תזרים — Pixel &amp; Co. Agency</title>
+<style>
+  :root{--bg:#0b1020;--card:#151c33;--ink:#e9edf7;--mut:#9aa6c2;--acc:#5b8cff;--good:#34d399;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,'Segoe UI',Arial,sans-serif;line-height:1.6}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px}
+  h1{font-size:26px;margin:0 0 4px} .sub{color:var(--mut);margin:0 0 24px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:20px 0}
+  .kpi{background:var(--card);border-radius:14px;padding:18px}
+  .kpi .v{font-size:24px;font-weight:700} .kpi .l{color:var(--mut);font-size:13px}
+  .kpi.hl .v{color:var(--acc)}
+  table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden;margin:8px 0 28px}
+  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid #ffffff14;font-size:14px}
+  th{color:var(--mut);font-weight:600} td.num{font-variant-numeric:tabular-nums}
+  .badge{padding:2px 9px;border-radius:999px;font-size:12px}
+  .badge.ok{background:#34d39922;color:var(--good)} .badge.due{background:#fbbf2422;color:var(--warn)}
+  .badge.late{background:#f8717122;color:var(--bad)} .badge.paid{background:#9aa6c222;color:var(--mut)}
+  .badge.disputed{background:#a78bfa22;color:#c4b5fd}
+  h2{font-size:18px;margin:24px 0 10px}
+  .sample{background:var(--card);border-radius:12px;padding:14px;margin:10px 0;border-right:3px solid var(--acc)}
+  .sample-h{font-weight:600;margin-bottom:6px}
+  pre{white-space:pre-wrap;font-family:inherit;color:var(--mut);margin:0}
+  .cta{margin-top:30px;padding:18px;background:linear-gradient(90deg,#5b8cff22,#34d39922);border-radius:14px}
+  .foot{color:var(--mut);font-size:12px;margin-top:24px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>דוח שחזור תזרים</h1>
+  <p class="sub">Pixel &amp; Co. Agency · נכון ל-2026-05-31 · הופק ע"י InvoiceChaser</p>
+
+  <div class="kpis">
+    <div class="kpi hl"><div class="v">₪87,000 + $42,500</div><div class="l">סך פתוח</div></div>
+    <div class="kpi"><div class="v">₪87,000 + $42,500</div><div class="l">מתוכו באיחור</div></div>
+    <div class="kpi"><div class="v">5/5</div><div class="l">חשבוניות באיחור / פתוחות</div></div>
+    <div class="kpi"><div class="v">28 ימים</div><div class="l">איחור ממוצע (משוקלל)</div></div>
+  </div>
+
+  <h2>תוכנית הגבייה</h2>
+  <table>
+    <thead><tr><th>חשבונית</th><th>לקוח</th><th>סכום</th><th>ימים</th><th>סטטוס</th><th>פעולה מומלצת</th></tr></thead>
+    <tbody><tr>
+        <td>INV-1042</td>
+        <td>מאיה לוי</td>
+        <td class="num">₪18,000</td>
+        <td class="num">+30</td>
+        <td><span class="badge late">open</span></td>
+        <td>הסלמה — לאישורך</td>
+      </tr>
+<tr>
+        <td>INV-1043</td>
+        <td>דניאל כהן</td>
+        <td class="num">₪42,000</td>
+        <td class="num">+14</td>
+        <td><span class="badge due">open</span></td>
+        <td>הסלמה — לאישורך</td>
+      </tr>
+<tr>
+        <td>INV-1044</td>
+        <td>Sarah Klein</td>
+        <td class="num">$9,500</td>
+        <td class="num">+46</td>
+        <td><span class="badge late">open</span></td>
+        <td>הסלמה — לאישורך</td>
+      </tr>
+<tr>
+        <td>INV-1045</td>
+        <td>יואב שמש</td>
+        <td class="num">₪27,000</td>
+        <td class="num">+3</td>
+        <td><span class="badge due">open</span></td>
+        <td>הסלמה — לאישורך</td>
+      </tr>
+<tr>
+        <td>INV-1046</td>
+        <td>רני אבני</td>
+        <td class="num">₪15,000</td>
+        <td class="num">+2</td>
+        <td><span class="badge disputed">disputed</span></td>
+        <td>עצירה</td>
+      </tr>
+<tr>
+        <td>INV-1047</td>
+        <td>Tom Becker</td>
+        <td class="num">$33,000</td>
+        <td class="num">+60</td>
+        <td><span class="badge late">open</span></td>
+        <td>הסלמה — לאישורך</td>
+      </tr>
+<tr>
+        <td>INV-1048</td>
+        <td>נועה ברק</td>
+        <td class="num">₪12,000</td>
+        <td class="num">+6</td>
+        <td><span class="badge paid">paid</span></td>
+        <td>עצירה</td>
+      </tr></tbody>
+  </table>
+
+  <h2>דוגמאות לתזכורות שה-AI ינסח</h2>
+  <div class="sample">
+        <div class="sample-h">הודעה לגבי חשבונית INV-1042 באיחור</div>
+        <pre>היי מאיה לוי,
+
+חשבונית INV-1042 על סך ₪18,000 באיחור של 30 ימים. נודה להסדרת התשלום, ואם יש בעיה — נשמח לדבר.
+
+לתשלום מאובטח בקליק: https://pay.invoicechaser.app/i/INV-1042
+
+תודה,
+רותם
+Pixel &amp; Co. Agency</pre>
+      </div>
+<div class="sample">
+        <div class="sample-h">תזכורת שנייה — חשבונית INV-1043 באיחור</div>
+        <pre>היי דניאל כהן,
+
+זוהי תזכורת שנייה: חשבונית INV-1043 על סך ₪42,000 באיחור של 14 ימים. נשמח להסדרה.
+
+לתשלום מאובטח בקליק: https://pay.invoicechaser.app/i/INV-1043
+
+תודה,
+רותם
+Pixel &amp; Co. Agency</pre>
+      </div>
+<div class="sample">
+        <div class="sample-h">Regarding overdue invoice INV-1044</div>
+        <pre>Hi Sarah Klein,
+
+Invoice INV-1044 for $9,500 is 46 days overdue. We'd appreciate payment, and if there's an issue we're glad to talk.
+
+Pay securely in one click: https://pay.invoicechaser.app/i/INV-1044
+
+Thanks,
+רותם
+Pixel &amp; Co. Agency</pre>
+      </div>
+
+  <div class="cta">
+    <strong>השורה התחתונה:</strong> יש כאן כסף שכבר הרווחת וממתין להיגבות.
+    InvoiceChaser ירדוף אחריו אוטומטית, באדיבות, ובלי שתצטרך להרים אצבע — ותשלם רק על מה שייגבה.
+  </div>
+
+  <p class="foot">Powered by InvoiceChaser · https://pay.invoicechaser.app</p>
+</div>
+</body>
+</html>

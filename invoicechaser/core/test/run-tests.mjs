@@ -7,6 +7,7 @@ import { decideNextAction, DEFAULT_CADENCE } from "../src/cadence.mjs";
 import { enforceGuardrails } from "../src/guardrails.mjs";
 import { generateReminder } from "../src/generator.mjs";
 import { parseCsv, rowsToInvoices } from "../src/csv.mjs";
+import { renderReport } from "../src/report.mjs";
 
 let passed = 0;
 function test(name, fn) {
@@ -117,6 +118,22 @@ test("parses quoted CSV and maps to invoices", () => {
   assert.equal(invs.length, 1);
   assert.equal(invs[0].customerName, "Doe, Jane");
   assert.equal(invs[0].amount, 1000);
+});
+
+console.log("report:");
+test("renders standalone RTL HTML with per-currency totals and no banned phrases", () => {
+  const invoices = [
+    inv(30, "open", "he"),
+    { ...inv(46, "open", "en"), id: "INV-2", currency: "USD", amount: 9500 },
+    { ...inv(2, "disputed", "he"), id: "INV-3" },
+  ];
+  const html = renderReport(invoices, BRAND, today(30));
+  assert.ok(html.startsWith("<!doctype html>"));
+  assert.ok(html.includes('dir="rtl"'));
+  assert.ok(html.includes("דוח שחזור תזרים"));
+  assert.ok(html.includes("₪18,000")); // ILS total
+  assert.ok(html.includes("$9,500")); // USD total kept separate (no bad cross-currency sum)
+  assert.ok(!/legal action|תביעה משפטית/.test(html)); // guardrails hold in samples
 });
 
 console.log(`\n${passed} checks passed.`);
