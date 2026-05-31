@@ -3,7 +3,7 @@
 // build today's outbox, log what was sent, record payments, and measure impact.
 
 import { decideNextAction } from "./cadence.mjs";
-import { generateReminder } from "./generator.mjs";
+import { generateReminderSmart } from "./ai-adapter.mjs";
 import { daysOverdue } from "./domain.mjs";
 
 /** Whether a reminder for this invoice+step was already sent (dedupe). */
@@ -17,20 +17,38 @@ function firstSent(ws, invoiceId) {
 }
 
 /**
- * Build today's outbox: the reminders that are due and not yet sent for their step.
- * Disputed/paid invoices are skipped by the cadence engine.
+ * Which invoices have a step due today that wasn't already sent (no drafting).
+ * Pure + sync — cheap, used by sent-all and as the basis for the outbox.
  * @param {import("./store.mjs").Workspace} ws
  * @param {Date} today
  * @param {"auto"|"approval"} mode
- * @returns {{invoice:any, decision:any, draft:any}[]}
+ * @returns {{invoice:any, decision:any}[]}
  */
-export function buildOutbox(ws, today, mode = "approval") {
+export function dueSteps(ws, today, mode = "approval") {
   const out = [];
   for (const invoice of ws.invoices) {
     const decision = decideNextAction(invoice, today, mode);
     if (decision.action !== "send" && decision.action !== "approve") continue;
     if (alreadySent(ws, invoice.id, decision.step.key)) continue; // don't resend the same step
-    const draft = generateReminder({ invoice, brand: ws.brand, step: decision.step, today });
+    out.push({ invoice, decision });
+  }
+  return out;
+}
+
+/**
+ * Build today's outbox by drafting a reminder for each due step. Uses the LLM when
+ * configured (via generateReminderSmart) and falls back to the template otherwise.
+ * @param {import("./store.mjs").Workspace} ws
+ * @param {Date} today
+ * @param {"auto"|"approval"} mode
+ * @param {object} [opts]  passed to generateReminderSmart ({apiKey?, fetchImpl?, model?})
+ * @returns {Promise<{invoice:any, decision:any, draft:any}[]>}
+ */
+export async function buildOutbox(ws, today, mode = "approval", opts = {}) {
+  const due = dueSteps(ws, today, mode);
+  const out = [];
+  for (const { invoice, decision } of due) {
+    const draft = await generateReminderSmart({ invoice, brand: ws.brand, step: decision.step, today }, opts);
     out.push({ invoice, decision, draft });
   }
   return out;

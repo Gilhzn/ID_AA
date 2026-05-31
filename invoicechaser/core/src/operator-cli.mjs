@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { parseCsv, rowsToInvoices } from "./csv.mjs";
 import { loadWorkspace, saveWorkspace, emptyWorkspace } from "./store.mjs";
-import { buildOutbox, recordSent, markPaid, markDisputed, computeImpact } from "./operator.mjs";
+import { buildOutbox, dueSteps, recordSent, markPaid, markDisputed, computeImpact } from "./operator.mjs";
 import { exportOutbox } from "./outbox-export.mjs";
 import { formatMoney } from "./domain.mjs";
 
@@ -59,8 +59,9 @@ switch (cmd) {
     const ws = loadWorkspace(wsPath);
     const today = dateFlag("today");
     const mode = flag("mode", "approval");
-    const outbox = buildOutbox(ws, today, mode);
-    console.log(`📬 Outbox ל-${today.toISOString().slice(0, 10)} (${mode}) — ${outbox.length} הודעות:\n`);
+    const outbox = await buildOutbox(ws, today, mode); // uses Claude if ANTHROPIC_API_KEY is set
+    const src = outbox[0]?.draft?.source ? ` [ניסוח: ${outbox[0].draft.source}]` : "";
+    console.log(`📬 Outbox ל-${today.toISOString().slice(0, 10)} (${mode})${src} — ${outbox.length} הודעות:\n`);
     for (const { invoice, decision, draft } of outbox) {
       const flagTxt = decision.action === "approve" ? " ⚠️ אישור" : "";
       console.log(`• ${invoice.id} → ${invoice.customerName} [${decision.step.key}]${flagTxt}: ${draft.subject}`);
@@ -78,10 +79,10 @@ switch (cmd) {
   case "sent-all": {
     const ws = loadWorkspace(wsPath);
     const today = dateFlag("today");
-    const outbox = buildOutbox(ws, today, flag("mode", "approval"));
-    for (const { invoice, decision } of outbox) recordSent(ws, invoice.id, decision.step.key, today);
+    const due = dueSteps(ws, today, flag("mode", "approval")); // no drafting needed to log sends
+    for (const { invoice, decision } of due) recordSent(ws, invoice.id, decision.step.key, today);
     saveWorkspace(wsPath, ws);
-    console.log(`✓ תועדו ${outbox.length} שליחות (${today.toISOString().slice(0, 10)})`);
+    console.log(`✓ תועדו ${due.length} שליחות (${today.toISOString().slice(0, 10)})`);
     break;
   }
 

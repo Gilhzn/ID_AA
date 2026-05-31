@@ -38,8 +38,17 @@ node test/run-tests.mjs
 - **בטיחות-טון** — אף פעם לא איום/שפה משפטית; final notice דורש אישור-אדם.
 - **עצירה אוטומטית** — חשבונית `paid`/`disputed` לא נרדפת.
 - **רב-לשוני** — עברית/אנגלית לפי הלקוח.
-- **LLM-ready** — הגדר `ANTHROPIC_API_KEY` וחבר את `draftWithLLM` ב-`ai-adapter.mjs`;
-  ה-guardrails נאכפים על פלט-ה-LLM, ויש fallback אוטומטי לתבנית.
+- **ניסוח LLM אמיתי (Claude)** — מחובר ב-`src/llm-claude.mjs`. הגדר מפתח והכל זורם:
+  ```bash
+  export ANTHROPIC_API_KEY=sk-ant-...
+  # אופציונלי: export INVOICECHASER_MODEL=claude-haiku-4-5-20251001  (ברירת-מחדל — זול ומהיר)
+  node src/cli.mjs samples/invoices.csv --today=2026-05-31 --mode=auto
+  # ה-outbox במצב-מפעיל ינוסח אוטומטית ע"י Claude:
+  node src/operator-cli.mjs outbox ws.json --today=2026-05-31
+  ```
+  ה-**guardrails נאכפים על פלט-ה-LLM**, ואם הוא נכשל/מפר-טון/אין-רשת — **fallback
+  אוטומטי ובטוח לתבנית** (אף פעם לא נשלח טקסט לא-בטוח). בלי מפתח — הכל רץ offline
+  על מנוע-התבנית.
 
 ## מצב-מפעיל (Operator) — להריץ גבייה אמיתית בפאזת Concierge
 

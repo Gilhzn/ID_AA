@@ -1,42 +1,33 @@
-// AI adapter seam. The product can plug a real LLM (e.g. Claude) into the same
-// `generateReminder` interface defined in invoicechaser/docs/05 §5.6, while always
-// re-applying guardrails and falling back to the deterministic template generator.
-//
-// This file intentionally does NOT hard-depend on any SDK so the core stays
-// zero-dependency and runnable offline. When ANTHROPIC_API_KEY is present and an
-// SDK is wired in, replace `draftWithLLM` with a real call.
+// AI adapter seam. Prefers a real LLM (Claude) when available, ALWAYS re-applies
+// guardrails to the output, and falls back to the deterministic template generator
+// on any failure or guardrail violation. Keeps the core zero-dependency.
+// See invoicechaser/docs/05 §5.6 and docs/09 §9.6.
 
 import { generateReminder as templateGenerate } from "./generator.mjs";
 import { enforceGuardrails } from "./guardrails.mjs";
+import { draftWithClaude } from "./llm-claude.mjs";
 
 /**
- * Whether a real LLM is configured. Kept trivial for the MVP.
+ * Whether a real LLM is configured (env or explicit opts).
+ * @param {{apiKey?:string}} [opts]
  */
-export function llmAvailable() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
-}
-
-/**
- * Placeholder for the real LLM drafting call. Returns null to signal "fall back".
- * To enable: build the prompt from `ctx` (invoice, history, brand tone, step),
- * call the Claude API, and return { subject, body }.
- * @param {object} _ctx
- * @returns {Promise<{subject:string, body:string}|null>}
- */
-async function draftWithLLM(_ctx) {
-  // Not wired in this offline core. See docs/09 §9.6 for the integration point.
-  return null;
+export function llmAvailable(opts = {}) {
+  return Boolean(opts.apiKey || process.env.ANTHROPIC_API_KEY);
 }
 
 /**
  * Generate a reminder, preferring the LLM when available, always enforcing guardrails,
  * and falling back to the deterministic template generator on any failure.
- * @param {object} ctx  same shape as generator.generateReminder
+ *
+ * @param {object} ctx  { invoice, brand, step, today, history? }
+ * @param {object} [opts]  { apiKey?, fetchImpl?, model? } — injectable for tests/offline
+ * @returns {Promise<object>}  draft + `source: "llm"|"template"`
  */
-export async function generateReminderSmart(ctx) {
-  if (llmAvailable()) {
+export async function generateReminderSmart(ctx, opts = {}) {
+  const apiKey = opts.apiKey || process.env.ANTHROPIC_API_KEY;
+  if (apiKey) {
     try {
-      const llm = await draftWithLLM(ctx);
+      const llm = await draftWithClaude(ctx, { apiKey, fetchImpl: opts.fetchImpl, model: opts.model });
       if (llm && llm.body) {
         const guard = enforceGuardrails(llm.body, ctx.step.urgency);
         if (guard.ok) {
@@ -49,10 +40,10 @@ export async function generateReminderSmart(ctx) {
             source: "llm",
           };
         }
-        // LLM output failed guardrails -> fall back safely.
+        // LLM output failed guardrails -> fall back safely (never send unsafe copy).
       }
     } catch {
-      // swallow and fall back
+      // network/parse error -> fall back
     }
   }
   return { ...templateGenerate(ctx), source: "template" };
