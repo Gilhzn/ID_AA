@@ -17,6 +17,28 @@ function firstSent(ws, invoiceId) {
 }
 
 /**
+ * Payment facts for one invoice — the single source of truth for impact AND billing.
+ * "creditable" = the invoice was already overdue at the moment of the first reminder
+ * and was subsequently paid (i.e. the chase plausibly drove the payment).
+ * @param {import("./store.mjs").Workspace} ws
+ * @param {import("./domain.mjs").Invoice} inv
+ */
+export function paymentInfo(ws, inv) {
+  const paid = ws.events.find((e) => e.type === "paid" && e.invoiceId === inv.id);
+  const fs = firstSent(ws, inv.id);
+  if (!paid) return { paid: false, creditable: false, daysToPay: null, firstSentAt: fs ? new Date(fs.at) : null };
+  const amount = paid.amount ?? inv.amount;
+  const paidAt = new Date(paid.at);
+  let daysToPay = null;
+  let creditable = false;
+  if (fs) {
+    daysToPay = Math.max(0, Math.round((paidAt - new Date(fs.at)) / 86400000));
+    creditable = daysOverdue(inv, new Date(fs.at)) > 0;
+  }
+  return { paid: true, amount, paidAt, firstSentAt: fs ? new Date(fs.at) : null, daysToPay, creditable };
+}
+
+/**
  * Which invoices have a step due today that wasn't already sent (no drafting).
  * Pure + sync — cheap, used by sent-all and as the basis for the outbox.
  * @param {import("./store.mjs").Workspace} ws
@@ -84,7 +106,6 @@ export function markDisputed(ws, invoiceId, at = new Date()) {
  * @param {Date} today
  */
 export function computeImpact(ws, today) {
-  const DAY = 86400000;
   let collected = 0;
   let creditable = 0;
   let creditableCount = 0;
@@ -92,21 +113,16 @@ export function computeImpact(ws, today) {
   let daysToPayN = 0;
 
   for (const inv of ws.invoices) {
-    const paid = ws.events.find((e) => e.type === "paid" && e.invoiceId === inv.id);
-    if (!paid) continue;
-    const amount = paid.amount ?? inv.amount;
-    collected += amount;
-
-    const fs = firstSent(ws, inv.id);
-    if (fs) {
-      const dtp = Math.max(0, Math.round((new Date(paid.at) - new Date(fs.at)) / DAY));
-      daysToPaySum += dtp;
+    const p = paymentInfo(ws, inv);
+    if (!p.paid) continue;
+    collected += p.amount;
+    if (p.daysToPay !== null) {
+      daysToPaySum += p.daysToPay;
       daysToPayN++;
-      // Creditable if the invoice was already overdue at the moment of the first reminder.
-      if (daysOverdue(inv, new Date(fs.at)) > 0) {
-        creditable += amount;
-        creditableCount++;
-      }
+    }
+    if (p.creditable) {
+      creditable += p.amount;
+      creditableCount++;
     }
   }
 

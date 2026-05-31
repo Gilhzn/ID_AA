@@ -7,19 +7,16 @@
 //   (if the workspace is empty, use the UI's import box or operator-cli import)
 
 import { createServer } from "node:http";
+import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { loadWorkspace, saveWorkspace, emptyWorkspace } from "./store.mjs";
 import { buildOutbox, dueSteps, recordSent, markPaid, markDisputed, computeImpact } from "./operator.mjs";
 import { decideNextAction } from "./cadence.mjs";
 import { parseCsv, rowsToInvoices } from "./csv.mjs";
+import { computeBilling } from "./billing.mjs";
 import { daysOverdue, formatMoney } from "./domain.mjs";
 
-const args = process.argv.slice(2);
-const WS_PATH = args.find((a) => !a.startsWith("--")) || "ws.json";
-const PORT = Number((args.find((a) => a.startsWith("--port=")) || "--port=3000").split("=")[1]);
-
-const ld = () => loadWorkspace(WS_PATH);
 const todayFrom = (q) => (q.get("today") ? new Date(q.get("today")) : new Date());
 
 function json(res, code, obj) {
@@ -40,8 +37,11 @@ function readBody(req) {
   });
 }
 
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+/** Build the HTTP server bound to a given workspace file (no auto-listen — testable). */
+export function makeServer(WS_PATH) {
+  const ld = () => loadWorkspace(WS_PATH);
+  return createServer(async (req, res) => {
+  const url = new URL(req.url, "http://localhost");
   const q = url.searchParams;
   const path = url.pathname;
 
@@ -99,6 +99,16 @@ const server = createServer(async (req, res) => {
           body: o.draft.body,
         })),
       });
+    }
+
+    if (path === "/api/billing" && req.method === "GET") {
+      const ws = ld();
+      const stmt = computeBilling(ws, {
+        ratePct: Number(q.get("rate") || "12"),
+        from: q.get("from") || undefined,
+        to: q.get("to") || undefined,
+      });
+      return json(res, 200, stmt);
     }
 
     if (path === "/api/sent" && req.method === "POST") {
@@ -159,7 +169,8 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     json(res, 500, { error: String(err && err.message) });
   }
-});
+  });
+}
 
 // Single-page dashboard (inline, RTL, no build step).
 const PAGE = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
@@ -188,6 +199,7 @@ textarea{width:100%;min-height:90px}
   מצב: <select id="mode"><option value="approval">approval (אישור לכל הודעה)</option><option value="auto">auto</option></select>
   <button onclick="refresh()">רענן</button>
   <button class="ghost" onclick="sentAll()">סמן את כל ה-Outbox כנשלח</button>
+  <button class="ghost" onclick="bill()">חיוב החודש (success-fee)</button>
 </div>
 <div class="kpis" id="kpis"></div>
 <h2>חשבוניות</h2><table id="tbl"><thead><tr><th>חשבונית</th><th>לקוח</th><th>סכום</th><th>ימים</th><th>סטטוס</th><th>פעולה הבאה</th><th></th></tr></thead><tbody id="rows"></tbody></table>
@@ -220,7 +232,16 @@ async function sentAll(){await api("/api/sent-all","POST",{today:$("#today").val
 async function pay(id,amt){const a=prompt("סכום ששולם:",amt);if(a===null)return;await api("/api/pay","POST",{invoiceId:id,amount:a,at:$("#today").value});refresh();}
 async function dispute(id){if(!confirm("לסמן במחלוקת? הרדיפה תיעצר."))return;await api("/api/dispute","POST",{invoiceId:id});refresh();}
 async function doImport(){const r=await api("/api/import","POST",{csv:$("#csv").value});alert("נוספו "+r.added+" (סה\\"כ "+r.total+")");$("#csv").value="";refresh();}
+async function bill(){const s=await api("/api/billing?rate=12");alert("עמלת-הצלחה ("+s.ratePct+"%):\\nסך מזכה: "+s.creditableTotal.toLocaleString()+"\\nלחיוב: "+s.fee.toLocaleString()+" "+s.currency);}
 refresh();
 </script></div></body></html>`;
 
-server.listen(PORT, () => console.log(`InvoiceChaser dashboard → http://localhost:${PORT}  (workspace: ${WS_PATH})`));
+// Run directly (not when imported by tests).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  const WS_PATH = args.find((a) => !a.startsWith("--")) || "ws.json";
+  const PORT = Number((args.find((a) => a.startsWith("--port=")) || "--port=3000").split("=")[1]);
+  makeServer(WS_PATH).listen(PORT, () =>
+    console.log(`InvoiceChaser dashboard → http://localhost:${PORT}  (workspace: ${WS_PATH})`)
+  );
+}

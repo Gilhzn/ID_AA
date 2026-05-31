@@ -16,7 +16,10 @@ import { parseCsv, rowsToInvoices } from "./csv.mjs";
 import { loadWorkspace, saveWorkspace, emptyWorkspace } from "./store.mjs";
 import { buildOutbox, dueSteps, recordSent, markPaid, markDisputed, computeImpact } from "./operator.mjs";
 import { exportOutbox } from "./outbox-export.mjs";
+import { computeBilling, renderStatement } from "./billing.mjs";
+import { sendEmail } from "./email.mjs";
 import { formatMoney } from "./domain.mjs";
+import { writeFileSync } from "node:fs";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -28,7 +31,7 @@ const flag = (name, def) => {
 const dateFlag = (name) => (flag(name) ? new Date(flag(name)) : new Date());
 
 function usage() {
-  console.error("commands: import | outbox | sent-all | sent | pay | dispute | impact");
+  console.error("commands: import | outbox | send | sent-all | sent | pay | dispute | impact | bill");
   process.exit(1);
 }
 
@@ -72,6 +75,55 @@ switch (cmd) {
       console.log(`\n✓ יוצאו ${res.count} קבצי .eml ל-${res.dir} (כולל index.md)`);
     } else {
       console.log(`\n(הוסף --out=dir כדי לייצא קבצי .eml מוכנים-לשליחה)`);
+    }
+    break;
+  }
+
+  case "send": {
+    // Build today's outbox, send each (dry-run unless --live), and log the send.
+    const ws = loadWorkspace(wsPath);
+    const today = dateFlag("today");
+    const mode = flag("mode", "approval");
+    const live = argv.includes("--live");
+    const outbox = await buildOutbox(ws, today, mode);
+    let sentCount = 0;
+    for (const { invoice, decision, draft } of outbox) {
+      if (decision.action === "approve" && !argv.includes("--yes")) {
+        console.log(`⏭️  דילוג (דורש אישור): ${invoice.id} — הוסף --yes לשליחת הסלמות`);
+        continue;
+      }
+      const r = await sendEmail(
+        { to: invoice.customerEmail, toName: invoice.customerName, fromName: ws.brand.businessName, subject: draft.subject, body: draft.body },
+        { live, from: ws.brand.replyTo }
+      );
+      recordSent(ws, invoice.id, decision.step.key, today);
+      sentCount++;
+      const tag = r.sent ? "📧 נשלח" : r.dryRun ? "📝 dry-run" : `⚠️ ${r.error}`;
+      console.log(`${tag}: ${invoice.id} → ${invoice.customerEmail} (${decision.step.key})`);
+    }
+    saveWorkspace(wsPath, ws);
+    console.log(`\n✓ עובדו ${sentCount} הודעות${live ? " (LIVE)" : " (dry-run — הוסף --live לשליחה אמיתית)"}`);
+    break;
+  }
+
+  case "bill": {
+    const ws = loadWorkspace(wsPath);
+    const stmt = computeBilling(ws, {
+      ratePct: Number(flag("rate", "12")),
+      from: flag("from"),
+      to: flag("to"),
+    });
+    console.log("══ חיוב (success-fee) ══");
+    console.log(`  תקופה: ${stmt.from || "התחלה"} — ${stmt.to || "היום"}  |  שיעור: ${stmt.ratePct}%`);
+    for (const li of stmt.lineItems) {
+      console.log(`   ${li.creditable ? "✓" : "·"} ${li.invoiceId} ${li.customerName} · ${formatMoney(li.amount, li.currency)} · ${li.paidAt} · עמלה ${formatMoney(li.fee, li.currency)}`);
+    }
+    console.log(`  סך מזכה: ${formatMoney(stmt.creditableTotal, stmt.currency)}`);
+    console.log(`  לחיוב: ${formatMoney(stmt.fee, stmt.currency)}`);
+    const out = flag("out");
+    if (out) {
+      writeFileSync(out, renderStatement(stmt), "utf8");
+      console.log(`  ✓ דוח HTML: ${out}`);
     }
     break;
   }

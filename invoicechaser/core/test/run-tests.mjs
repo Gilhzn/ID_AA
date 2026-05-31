@@ -13,6 +13,12 @@ import { buildOutbox, dueSteps, recordSent, markPaid, markDisputed, computeImpac
 import { buildPrompt, parseResponse } from "../src/llm-claude.mjs";
 import { generateReminderSmart } from "../src/ai-adapter.mjs";
 import { DEFAULT_CADENCE as CAD } from "../src/cadence.mjs";
+import { computeBilling } from "../src/billing.mjs";
+import { sendEmail } from "../src/email.mjs";
+import { makeServer } from "../src/server.mjs";
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 let passed = 0;
 function test(name, fn) {
@@ -151,6 +157,34 @@ test("renders standalone RTL HTML with per-currency totals and no banned phrases
   assert.ok(!/legal action|תביעה משפטית/.test(html)); // guardrails hold in samples
 });
 
+console.log("billing:");
+test("fee applies only to creditable (overdue-when-chased then paid)", () => {
+  const ws = wsWith([inv(7)]);
+  recordSent(ws, "INV-1", "overdue_7", today(7));
+  markPaid(ws, "INV-1", 18000, today(12));
+  const stmt = computeBilling(ws, { ratePct: 10 });
+  assert.equal(stmt.creditableTotal, 18000);
+  assert.equal(stmt.fee, 1800);
+  assert.equal(stmt.lineItems.length, 1);
+  assert.equal(stmt.lineItems[0].creditable, true);
+});
+test("paid-without-chase is collected but not creditable (no fee)", () => {
+  const ws = wsWith([inv(7)]);
+  markPaid(ws, "INV-1", 18000, today(12)); // never chased
+  const stmt = computeBilling(ws, { ratePct: 10 });
+  assert.equal(stmt.collectedTotal, 18000);
+  assert.equal(stmt.creditableTotal, 0);
+  assert.equal(stmt.fee, 0);
+});
+test("period filter excludes payments outside the window", () => {
+  const ws = wsWith([inv(7)]);
+  recordSent(ws, "INV-1", "overdue_7", today(7));
+  markPaid(ws, "INV-1", 18000, today(12)); // 2026-05-13
+  const stmt = computeBilling(ws, { ratePct: 10, to: "2026-05-10" });
+  assert.equal(stmt.lineItems.length, 0);
+  assert.equal(stmt.fee, 0);
+});
+
 console.log("operator:");
 function wsWith(invoices) {
   const ws = emptyWorkspace({ businessName: "Test", signerName: "רותם", replyTo: "x@test.example" });
@@ -252,6 +286,70 @@ await (async () => {
     assert.equal(box.length, 1);
     assert.ok(box[0].draft.body.includes("מאיה"));
     assert.equal(box[0].draft.source, "template");
+  });
+
+  console.log("email:");
+  await testAsync("dry-run by default (never sends without --live)", async () => {
+    const r = await sendEmail({ to: "a@b.example", subject: "s", body: "b" });
+    assert.equal(r.dryRun, true);
+    assert.equal(r.sent, false);
+  });
+  await testAsync("live send via Resend (fake fetch) returns id", async () => {
+    const fake = async (url, init) => {
+      assert.ok(url.includes("resend.com"));
+      assert.ok(init.headers.authorization.includes("test-key"));
+      return { ok: true, status: 200, json: async () => ({ id: "email_123" }) };
+    };
+    const r = await sendEmail(
+      { to: "a@b.example", subject: "s", body: "b" },
+      { live: true, apiKey: "test-key", fetchImpl: fake }
+    );
+    assert.equal(r.sent, true);
+    assert.equal(r.id, "email_123");
+  });
+  await testAsync("live send handles provider error gracefully", async () => {
+    const fake = async () => ({ ok: false, status: 422, json: async () => ({}) });
+    const r = await sendEmail({ to: "a@b.example", subject: "s", body: "b" }, { live: true, apiKey: "k", fetchImpl: fake });
+    assert.equal(r.sent, false);
+    assert.ok(r.error.includes("422"));
+  });
+
+  console.log("server (integration):");
+  await testAsync("full HTTP flow: import → state → outbox → pay → billing", async () => {
+    const wsPath = join(tmpdir(), `ic-test-${Date.now()}.json`);
+    const srv = makeServer(wsPath);
+    await new Promise((r) => srv.listen(0, r));
+    const base = `http://localhost:${srv.address().port}`;
+    const post = (p, b) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
+    const get = (p) => fetch(base + p).then((r) => r.json());
+    try {
+      const csv = readFileSync(join(import.meta.dirname, "..", "samples", "invoices.csv"), "utf8");
+      const imp = await post("/api/import", { csv, name: "Test Agency" });
+      assert.equal(imp.added, 7);
+
+      const html = await fetch(base + "/").then((r) => r.text());
+      assert.ok(html.includes("InvoiceChaser"));
+
+      const state = await get("/api/state?today=2026-05-31&mode=auto");
+      assert.equal(state.invoices.length, 7);
+      assert.equal(state.brand.businessName, "Test Agency");
+
+      const outbox = await get("/api/outbox?today=2026-05-31&mode=auto");
+      assert.ok(outbox.items.length >= 1);
+
+      // chase + pay INV-1043, then it should be creditable in billing
+      await post("/api/sent", { invoiceId: "INV-1043", stepKey: "overdue_14", today: "2026-05-31" });
+      await post("/api/pay", { invoiceId: "INV-1043", amount: 42000, at: "2026-06-04" });
+      const bill = await get("/api/billing?rate=10");
+      assert.equal(bill.creditableTotal, 42000);
+      assert.equal(bill.fee, 4200);
+
+      const notFound = await fetch(base + "/api/nope");
+      assert.equal(notFound.status, 404);
+    } finally {
+      await new Promise((r) => srv.close(r));
+      rmSync(wsPath, { force: true });
+    }
   });
 
   console.log(`\n${passed} checks passed.`);

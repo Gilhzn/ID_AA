@@ -65,15 +65,18 @@ node src/operator-cli.mjs import $WS agency.csv --name="Pixel & Co." --signer="�
 node src/operator-cli.mjs outbox $WS --today=2026-05-31 --mode=approval --out=./outbox
 #    -> פותחים את ה-.eml בלקוח-המייל, או מעתיקים מ-index.md ל-Gmail
 
-# 3) מתעדים מה נשלח (כדי לא לשלוח שוב את אותו שלב)
-node src/operator-cli.mjs sent-all $WS --today=2026-05-31
+# 3) שליחה: dry-run כברירת-מחדל; --live שולח באמת (דרך Resend), --yes כולל הסלמות
+node src/operator-cli.mjs send $WS --today=2026-05-31 --mode=auto          # dry-run
+#   RESEND_API_KEY=... node src/operator-cli.mjs send $WS --live --yes      # שליחה אמיתית
+#   (או פשוט לתעד ידנית: node src/operator-cli.mjs sent-all $WS --today=2026-05-31)
 
 # 4) כשלקוח משלם / מתלונן
 node src/operator-cli.mjs pay     $WS INV-1043 42000 --at=2026-06-04
 node src/operator-cli.mjs dispute $WS INV-1046
 
-# 5) Impact — ההוכחה + בסיס ה-success-fee
+# 5) Impact + חיוב success-fee (מי לחייב, כמה, + דוח HTML)
 node src/operator-cli.mjs impact $WS --today=2026-06-04
+node src/operator-cli.mjs bill   $WS --rate=12 --from=2026-06-01 --to=2026-06-30 --out=statement.html
 ```
 
 `outbox` מדלג אוטומטית על שלב שכבר נשלח (dedupe), על חשבונית `paid`, ועל
@@ -85,7 +88,10 @@ node src/operator-cli.mjs impact $WS --today=2026-06-04
 | `src/store.mjs` | workspace JSON (load/save) — Postgres בעתיד |
 | `src/operator.mjs` | לוגיקת-מפעיל טהורה (outbox/dedupe/impact) |
 | `src/outbox-export.mjs` | ייצוא ל-.eml + index.md |
-| `src/operator-cli.mjs` | CLI לפקודות import/outbox/sent/pay/impact |
+| `src/operator-cli.mjs` | CLI: import/outbox/send/sent/pay/dispute/impact/bill |
+| `src/billing.mjs` | חישוב success-fee + דוח-חיוב (HTML) |
+| `src/email.mjs` | שליחת אימייל (Resend; dry-run כברירת-מחדל) |
+| `src/server.mjs` | dashboard web + JSON API (אפס-תלויות) |
 | `src/report.mjs` + `report-cli.mjs` | דוח-שחזור-תזרים (HTML) ל"ניתוח חינם" |
 
 ## Dashboard (שרת web אפס-תלויות)
