@@ -1,0 +1,17 @@
+{
+  "name": "invoicechaser-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "InvoiceChaser AI — core dunning engine (zero-dependency, runnable offline). The differentiating heart of the product per invoicechaser/docs/05-ai-dunning-engine.md.",
+  "bin": {
+    "invoicechaser": "src/cli.mjs"
+  },
+  "scripts": {
+    "demo": "node src/cli.mjs samples/invoices.csv",
+    "test": "node test/run-tests.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

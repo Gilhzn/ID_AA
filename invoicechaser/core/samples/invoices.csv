@@ -1,0 +1,8 @@
+id,customerName,customerEmail,amount,currency,issueDate,dueDate,status,lang
+INV-1042,מאיה לוי,maya@brightside.example,18000,ILS,2026-04-01,2026-05-01,open,he
+INV-1043,דניאל כהן,dan@northwind.example,42000,ILS,2026-04-10,2026-05-17,open,he
+INV-1044,Sarah Klein,sarah@acme.example,9500,USD,2026-03-15,2026-04-15,open,en
+INV-1045,יואב שמש,yoav@sunfactory.example,27000,ILS,2026-05-10,2026-05-28,open,he
+INV-1046,רני אבני,rani@deepsea.example,15000,ILS,2026-04-20,2026-05-29,disputed,he
+INV-1047,Tom Becker,tom@vertex.example,33000,USD,2026-03-01,2026-04-01,open,en
+INV-1048,נועה ברק,noa@loft.example,12000,ILS,2026-04-25,2026-05-25,paid,he
