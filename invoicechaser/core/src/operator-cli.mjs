@@ -13,7 +13,7 @@
 
 import { readFileSync } from "node:fs";
 import { parseCsv, rowsToInvoices } from "./csv.mjs";
-import { loadWorkspace, saveWorkspace, emptyWorkspace } from "./store.mjs";
+import { loadWorkspace, saveWorkspace } from "./store.mjs";
 import { buildOutbox, dueSteps, recordSent, markPaid, markDisputed, computeImpact } from "./operator.mjs";
 import { exportOutbox } from "./outbox-export.mjs";
 import { computeBilling, renderStatement } from "./billing.mjs";
@@ -41,7 +41,7 @@ if (!cmd || !wsPath) usage();
 switch (cmd) {
   case "import": {
     const csv = pos[1];
-    const ws = loadWorkspace(wsPath).invoices ? loadWorkspace(wsPath) : emptyWorkspace();
+    const ws = loadWorkspace(wsPath); // returns an empty workspace if the file doesn't exist yet
     ws.brand.businessName = flag("name", ws.brand.businessName);
     ws.brand.signerName = flag("signer", ws.brand.signerName);
     ws.brand.replyTo = flag("reply", ws.brand.replyTo);
@@ -96,13 +96,20 @@ switch (cmd) {
         { to: invoice.customerEmail, toName: invoice.customerName, fromName: ws.brand.businessName, subject: draft.subject, body: draft.body },
         { live, from: ws.brand.replyTo }
       );
-      recordSent(ws, invoice.id, decision.step.key, today);
-      sentCount++;
-      const tag = r.sent ? "📧 נשלח" : r.dryRun ? "📝 dry-run" : `⚠️ ${r.error}`;
+      // Only log a 'sent' event when a real email actually went out (dry-run is preview-only).
+      if (r.sent) {
+        recordSent(ws, invoice.id, decision.step.key, today);
+        sentCount++;
+      }
+      const tag = r.sent ? "📧 נשלח" : r.dryRun ? "📝 dry-run (תצוגה מקדימה)" : `⚠️ ${r.error}`;
       console.log(`${tag}: ${invoice.id} → ${invoice.customerEmail} (${decision.step.key})`);
     }
     saveWorkspace(wsPath, ws);
-    console.log(`\n✓ עובדו ${sentCount} הודעות${live ? " (LIVE)" : " (dry-run — הוסף --live לשליחה אמיתית)"}`);
+    console.log(
+      live
+        ? `\n✓ נשלחו ותועדו ${sentCount} הודעות (LIVE)`
+        : `\n📝 תצוגה-מקדימה בלבד (לא תועד). --live לשליחה אמיתית, או 'sent-all' לתיעוד ידני.`
+    );
     break;
   }
 

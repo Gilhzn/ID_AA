@@ -58,7 +58,9 @@ function splitRows(text) {
  * @returns {import("./domain.mjs").Invoice[]}
  */
 export function rowsToInvoices(rows) {
-  return rows.map((r) => ({
+  return rows
+    .filter((r) => (r.id || "").trim() !== "") // skip blank/empty lines — no phantom invoices
+    .map((r) => ({
     id: r.id,
     customerName: r.customerName,
     customerEmail: r.customerEmail,

@@ -140,6 +140,16 @@ test("parses quoted CSV and maps to invoices", () => {
   assert.equal(invs[0].customerName, "Doe, Jane");
   assert.equal(invs[0].amount, 1000);
 });
+test("skips blank/empty rows — no phantom invoices", () => {
+  const text =
+    "id,customerName,customerEmail,amount,currency,issueDate,dueDate,status,lang\n" +
+    "INV-9,Jane,j@x.example,1000,USD,2026-01-01,2026-02-01,open,en\n" +
+    "\n" + // stray blank line in the middle
+    "INV-10,Bob,b@x.example,500,USD,2026-01-01,2026-02-01,open,en\n";
+  const invs = rowsToInvoices(parseCsv(text));
+  assert.equal(invs.length, 2);
+  assert.ok(invs.every((i) => i.id));
+});
 
 console.log("report:");
 test("renders standalone RTL HTML with per-currency totals and no banned phrases", () => {
