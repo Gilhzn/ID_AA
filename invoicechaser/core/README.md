@@ -88,6 +88,22 @@ node src/operator-cli.mjs impact $WS --today=2026-06-04
 | `src/operator-cli.mjs` | CLI לפקודות import/outbox/sent/pay/impact |
 | `src/report.mjs` + `report-cli.mjs` | דוח-שחזור-תזרים (HTML) ל"ניתוח חינם" |
 
+## Dashboard (שרת web אפס-תלויות)
+
+ממשק חזותי מעל המנוע — רץ עם `node` בלבד (מודול `http` המובנה), בלי build ובלי npm.
+
+```bash
+# (אם צריך) זרע workspace מ-CSV
+node src/operator-cli.mjs import ws.json samples/invoices.csv --name="Pixel & Co." --signer="רותם"
+# הפעל את הלוח
+node src/server.mjs ws.json --port=3000      # → http://localhost:3000
+```
+
+הלוח מציג: KPIs (נגבה/מזכה/ימים-עד-תשלום/פתוח-באיחור), טבלת-חשבוניות עם aging,
+ה-**Outbox** של היום עם תזכורות מנוסחות + כפתור "סמן כנשלח", פעולות "שולם"/"מחלוקת",
+וייבוא CSV מהדפדפן. עם `ANTHROPIC_API_KEY` — ה-Outbox מנוסח ע"י Claude (אחרת תבנית).
+ה-API: `GET /api/state`, `GET /api/outbox`, `POST /api/{sent,sent-all,pay,dispute,import}`.
+
 ## הצעד הבא (לא בליבה הזו)
 - מעטפת web (Next.js) + DB (Postgres) לפי [`../docs/09-architecture.md`](../docs/09-architecture.md).
 - שליחת-אימייל אמיתית (Resend/Postmark) + Stripe Payment Links + webhooks.

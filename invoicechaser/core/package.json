@@ -8,7 +8,9 @@
     "invoicechaser": "src/cli.mjs"
   },
   "scripts": {
-    "demo": "node src/cli.mjs samples/invoices.csv",
+    "demo": "node src/cli.mjs samples/invoices.csv --today=2026-05-31 --mode=auto",
+    "report": "node src/report-cli.mjs samples/invoices.csv samples/sample-report.html --today=2026-05-31",
+    "serve": "node src/server.mjs ws.json --port=3000",
     "test": "node test/run-tests.mjs"
   },
   "engines": {
