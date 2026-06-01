@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InvoiceChaser — דשבורד גבייה</title>
+<style>
+:root{--bg:#0a0f1f;--panel:#121a30;--card:#172139;--ink:#eef2fb;--mut:#94a1c0;--line:#ffffff14;
+--acc:#6aa0ff;--acc2:#8b6dff;--good:#34d399;--warn:#f6c453;--bad:#f87171;--rad:14px}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font-family:system-ui,'Segoe UI',Arial,sans-serif;line-height:1.55}
+header{position:sticky;top:0;z-index:5;background:rgba(10,15,31,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.hbar{max-width:1080px;margin:0 auto;padding:12px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.logo{font-weight:800;font-size:18px;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wrap{max-width:1080px;margin:0 auto;padding:18px}
+select,input,button,textarea{font:inherit;color:var(--ink);background:#0e1730;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+button{background:linear-gradient(90deg,var(--acc),var(--acc2));border:0;font-weight:600;cursor:pointer}
+button.ghost{background:#1b2747}button.sm{padding:5px 9px;font-size:12px}
+.tabs{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap}
+.tab{padding:8px 14px;border-radius:999px;background:#141d34;cursor:pointer;color:var(--mut);border:1px solid var(--line)}
+.tab.on{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff;border:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:6px 0 16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--rad);padding:14px}
+.kpi .v{font-size:22px;font-weight:800}.kpi .l{color:var(--mut);font-size:12px}.kpi.hl .v{color:var(--good)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:14px;margin:10px 0}
+table{width:100%;border-collapse:collapse}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;font-size:14px}th{color:var(--mut);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+.badge{padding:2px 9px;border-radius:999px;font-size:12px}.ok{background:#34d39922;color:var(--good)}.due{background:#f6c45322;color:var(--warn)}
+.late{background:#f8717122;color:var(--bad)}.paid{background:#94a1c022;color:var(--mut)}.disputed{background:#8b6dff22;color:#c4b5fd}
+.msg{background:var(--card);border:1px solid var(--line);border-right:3px solid var(--acc);border-radius:12px;padding:12px;margin:10px 0}
+.msg textarea{width:100%;min-height:120px;margin-top:6px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.grow{flex:1}.muted{color:var(--mut);font-size:13px}
+.hide{display:none}.field{display:flex;flex-direction:column;gap:4px;margin:6px 0}.field label{font-size:12px;color:var(--mut)}
+h2{font-size:17px;margin:6px 0 10px}.pill{font-size:12px;color:var(--mut)}
+.note{background:#6aa0ff14;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--mut);margin:10px 0}
+</style>
+</head>
+<body>
+<header><div class="hbar">
+  <div class="logo">⚡ InvoiceChaser</div>
+  <span class="pill" id="hint">—</span>
+  <div class="grow"></div>
+  <select id="client"></select>
+  <button class="ghost sm" id="btnNewClient">+ לקוח</button>
+  <input type="date" id="today" value="2026-05-31">
+  <select id="mode"><option value="approval">approval</option><option value="auto">auto</option></select>
+</div></header>
+<div class="wrap">
+  <div class="note">דמו שרץ כולו בדפדפן — הנתונים נשמרים מקומית אצלך (localStorage). אין שרת ואין שליחת-מידע החוצה.</div>
+  <div class="tabs" id="tabs"></div>
+
+  <section id="t-overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="panel"><h2>חשבוניות</h2>
+      <table><thead><tr><th>חשבונית</th><th>לקוח</th><th>סכום</th><th>ימים</th><th>סטטוס</th><th>פעולה</th><th></th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+  </section>
+
+  <section id="t-outbox" class="hide">
+    <div class="row"><h2 class="grow">Outbox <span class="pill" id="src"></span></h2>
+      <button class="ghost sm" id="btnSentAll">סמן הכל כנשלח</button></div>
+    <div id="outbox"></div>
+  </section>
+
+  <section id="t-billing" class="hide">
+    <div class="panel"><h2>חיוב success-fee</h2>
+      <div class="row">
+        <div class="field"><label>שיעור %</label><input id="rate" type="number" value="12" style="width:80px"></div>
+        <div class="field"><label>מתאריך</label><input id="from" type="date"></div>
+        <div class="field"><label>עד תאריך</label><input id="to" type="date"></div>
+        <button id="btnBill">חשב</button>
+        <button class="ghost" id="btnStatement">פתח דוח חיוב</button>
+      </div>
+      <div id="billbox"></div>
+    </div>
+  </section>
+
+  <section id="t-settings" class="hide">
+    <div class="panel"><h2>הגדרות מותג</h2>
+      <div class="field"><label>שם העסק</label><input id="s_name"></div>
+      <div class="field"><label>שם החותם</label><input id="s_signer"></div>
+      <div class="field"><label>Reply-To (אימייל)</label><input id="s_reply"></div>
+      <div class="field"><label>טון</label><select id="s_tone"><option value="friendly">ידידותי</option><option value="formal">רשמי</option><option value="firm">נחרץ</option></select></div>
+      <button id="btnSaveSettings">שמור</button>
+    </div>
+  </section>
+
+  <section id="t-import" class="hide">
+    <div class="panel"><h2>ייבוא חשבוניות (CSV)</h2>
+      <p class="muted">כותרות: id,customerName,customerEmail,amount,currency,issueDate,dueDate,status,lang</p>
+      <textarea id="csv" style="width:100%;min-height:140px" placeholder="הדבק CSV..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="btnImport">ייבא</button>
+        <button class="ghost" id="btnLoadSample">טען נתוני דמו</button>
+        <button class="ghost" id="btnReport">פתח ניתוח-גבייה</button>
+      </div>
+    </div>
+  </section>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

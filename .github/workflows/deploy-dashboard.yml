@@ -1,0 +1,53 @@
+name: Deploy InvoiceChaser dashboard
+
+# Publishes the static, browser-only InvoiceChaser dashboard to GitHub Pages.
+# The app runs the same engine as the Node version, with data stored in the
+# browser (localStorage) — no server required.
+
+on:
+  push:
+    branches: [claude/app-feature-spec-BUHh4]
+    paths:
+      - "invoicechaser/web/**"
+      - "invoicechaser/core/src/**"
+      - ".github/workflows/deploy-dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble static site
+        run: |
+          mkdir -p site/engine
+          cp invoicechaser/web/index.html site/
+          cp invoicechaser/web/app.js site/
+          cp invoicechaser/core/src/*.mjs site/engine/
+          touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

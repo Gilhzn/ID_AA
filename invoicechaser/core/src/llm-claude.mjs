@@ -8,7 +8,8 @@
 import { daysOverdue, formatMoney, paymentLink } from "./domain.mjs";
 
 // Cheap + fast model is the right default for short reminders; override via env.
-export const DEFAULT_MODEL = process.env.INVOICECHASER_MODEL || "claude-haiku-4-5-20251001";
+const ENV = typeof process !== "undefined" && process.env ? process.env : {};
+export const DEFAULT_MODEL = ENV.INVOICECHASER_MODEL || "claude-haiku-4-5-20251001";
 
 const URGENCY_GUIDE = {
   1: "ידידותי ורך — תזכורת קלילה, בלי לחץ",

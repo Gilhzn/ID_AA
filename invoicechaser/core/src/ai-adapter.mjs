@@ -7,12 +7,15 @@ import { generateReminder as templateGenerate } from "./generator.mjs";
 import { enforceGuardrails } from "./guardrails.mjs";
 import { draftWithClaude } from "./llm-claude.mjs";
 
+// Browser-safe access to env (no `process` in the browser static build).
+const ENV = typeof process !== "undefined" && process.env ? process.env : {};
+
 /**
  * Whether a real LLM is configured (env or explicit opts).
  * @param {{apiKey?:string}} [opts]
  */
 export function llmAvailable(opts = {}) {
-  return Boolean(opts.apiKey || process.env.ANTHROPIC_API_KEY);
+  return Boolean(opts.apiKey || ENV.ANTHROPIC_API_KEY);
 }
 
 /**
@@ -24,7 +27,7 @@ export function llmAvailable(opts = {}) {
  * @returns {Promise<object>}  draft + `source: "llm"|"template"`
  */
 export async function generateReminderSmart(ctx, opts = {}) {
-  const apiKey = opts.apiKey || process.env.ANTHROPIC_API_KEY;
+  const apiKey = opts.apiKey || ENV.ANTHROPIC_API_KEY;
   if (apiKey) {
     try {
       const llm = await draftWithClaude(ctx, { apiKey, fetchImpl: opts.fetchImpl, model: opts.model });
