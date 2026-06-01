@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b6cff">
+<title>InvoiceChaser — גבייה חכמה</title>
+<style>
+:root{
+  --bg:#f4f6fb; --surface:#ffffff; --surface2:#eef1f8; --ink:#192244; --mut:#6b7796;
+  --line:#e7eaf3; --brand:#5b6cff; --brand2:#7c5cff; --brandSoft:#eceeff;
+  --good:#0fae7a; --goodSoft:#e2f6ee; --warn:#d98a07; --warnSoft:#fdf2dc;
+  --bad:#e1483c; --badSoft:#fdeae8; --violet:#7c5cff; --violetSoft:#efeaff;
+  --rad:16px; --radSm:11px; --shadow:0 1px 2px rgba(20,28,70,.04),0 8px 24px rgba(20,28,70,.06);
+  --shadowSm:0 1px 2px rgba(20,28,70,.05),0 3px 10px rgba(20,28,70,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0c1020;--surface:#161c30;--surface2:#1e2640;--ink:#eef1fb;--mut:#9aa6c6;
+  --line:#ffffff14;--brandSoft:#5b6cff22;--goodSoft:#0fae7a22;--warnSoft:#d98a0722;--badSoft:#e1483c22;--violetSoft:#7c5cff22;
+  --shadow:0 1px 2px #0006,0 10px 30px #0008;--shadowSm:0 1px 2px #0006,0 4px 14px #0007;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,system-ui,'Segoe UI','Heebo',Arial,sans-serif;line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.muted{color:var(--mut)}.small{font-size:12.5px}
+
+/* App bar */
+.appbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;padding:11px 16px;padding-top:calc(11px + env(safe-area-inset-top))}
+.brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:17px}
+.brand .dot{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:14px}
+.brand b{background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.spacer{flex:1}
+.client-sel{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--line);
+  border-radius:999px;padding:4px 4px 4px 12px}
+.client-sel select{border:0;background:transparent;font-weight:600;max-width:42vw;padding:4px 0}
+.iconbtn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);
+  border:1px solid var(--line);font-size:18px;color:var(--brand);line-height:1}
+.iconbtn:active{transform:scale(.94)}
+
+/* Toolbar */
+.toolbar{max-width:1040px;margin:0 auto;padding:12px 16px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:6px 12px;box-shadow:var(--shadowSm)}
+.seg input,.seg select{border:0;background:transparent;font-weight:600}
+.seg .lbl{color:var(--mut);font-size:12px}
+
+/* Tabs */
+.tabbar{max-width:1040px;margin:12px auto 0;padding:0 16px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.tabbar::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:7px;white-space:nowrap;padding:9px 15px;border-radius:999px;
+  background:var(--surface);border:1px solid var(--line);color:var(--mut);font-weight:600;box-shadow:var(--shadowSm)}
+.tab .ico{font-size:15px}
+.tab.on{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-color:transparent}
+
+.content{max-width:1040px;margin:0 auto;padding:16px}
+.hide{display:none}
+
+/* Cards & panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--rad);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.section-title{font-size:15px;font-weight:700;margin:2px 2px 10px;display:flex;align-items:center;gap:8px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--rad);padding:15px;box-shadow:var(--shadow)}
+.kpi .v{font-size:23px;font-weight:800;letter-spacing:-.4px}
+.kpi .l{color:var(--mut);font-size:12.5px;margin-top:2px}
+.kpi.hl{background:linear-gradient(135deg,var(--brand),var(--brand2));border-color:transparent;color:#fff}
+.kpi.hl .l{color:#ffffffcc}
+
+/* Invoice cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.inv{background:var(--surface);border:1px solid var(--line);border-radius:var(--rad);padding:15px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:8px}
+.inv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.inv-name{font-weight:700}
+.inv-amt{font-size:21px;font-weight:800;letter-spacing:-.4px}
+.inv-meta{color:var(--mut);font-size:12.5px}
+.inv-actions{display:flex;gap:8px;margin-top:2px}
+.chip{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--goodSoft);color:var(--good)}
+.chip.due{background:var(--warnSoft);color:var(--warn)}
+.chip.late{background:var(--badSoft);color:var(--bad)}
+.chip.paid{background:var(--surface2);color:var(--mut)}
+.chip.disputed{background:var(--violetSoft);color:var(--violet)}
+
+/* Buttons */
+.btn{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-radius:var(--radSm);
+  padding:10px 16px;font-weight:600;box-shadow:var(--shadowSm)}
+.btn:active{transform:translateY(1px)}
+.btn-soft{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 13px;font-weight:600;font-size:13px}
+.btn-soft:active{transform:scale(.97)}
+.btn-ghost{background:transparent;border:1px solid var(--line);border-radius:var(--radSm);padding:9px 15px;font-weight:600}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+/* Outbox message */
+.msg{background:var(--surface);border:1px solid var(--line);border-radius:var(--rad);padding:15px;box-shadow:var(--shadow);margin-bottom:12px}
+.msg-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.msg textarea{width:100%;min-height:124px;margin-top:10px;border:1px solid var(--line);border-radius:12px;
+  padding:11px;background:var(--surface2);resize:vertical;line-height:1.55}
+.msg .sub{color:var(--mut);font-size:12.5px;margin-top:4px}
+
+/* Forms */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:12.5px;color:var(--mut);font-weight:600}
+.field input,.field select,textarea.box{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;
+  background:var(--surface2)}
+textarea.box{min-height:150px;resize:vertical;line-height:1.5}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+
+/* Empty state */
+.empty{text-align:center;padding:34px 16px;color:var(--mut)}
+.empty .big{font-size:40px;margin-bottom:6px}
+
+.note{display:flex;gap:8px;align-items:center;background:var(--brandSoft);color:var(--ink);
+  border-radius:12px;padding:9px 13px;font-size:12.5px;margin-bottom:14px}
+
+footer{text-align:center;color:var(--mut);font-size:11.5px;padding:20px 0 6px}
+
+/* ===== Mobile: bottom tab bar ===== */
+@media (max-width:720px){
+  .brand b{display:none}
+  .client-sel select{max-width:36vw}
+  .tabbar{position:fixed;inset-inline:0;bottom:0;margin:0;padding:7px 8px;
+    padding-bottom:calc(7px + env(safe-area-inset-bottom));gap:0;justify-content:space-around;overflow:visible;
+    background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);box-shadow:0 -3px 16px rgba(20,28,70,.07);z-index:40}
+  .tab{flex:1;flex-direction:column;gap:3px;background:transparent;border:0;box-shadow:none;
+    color:var(--mut);font-size:11px;padding:6px 2px;border-radius:12px;font-weight:600}
+  .tab .ico{font-size:20px}
+  .tab.on{background:var(--brandSoft);color:var(--brand)}
+  .content{padding-bottom:86px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi .v{font-size:20px}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:380px){.kpis{grid-template-columns:1fr 1fr}.seg{padding:6px 10px}}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand"><span class="dot">⚡</span><b>InvoiceChaser</b></div>
+  <div class="spacer"></div>
+  <div class="client-sel"><select id="client" aria-label="לקוח"></select><button class="iconbtn" id="btnNewClient" title="לקוח חדש" aria-label="לקוח חדש">＋</button></div>
+</header>
+
+<div class="toolbar">
+  <div class="seg"><span class="lbl">📅</span><input type="date" id="today" value="2026-05-31"></div>
+  <div class="seg"><span class="lbl">מצב</span><select id="mode"><option value="approval">אישור ידני</option><option value="auto">אוטומטי</option></select></div>
+  <span class="muted small" id="hint" style="margin-inline-start:auto"></span>
+</div>
+
+<nav class="tabbar" id="tabs"></nav>
+
+<main class="content">
+  <!-- Overview -->
+  <section id="t-overview">
+    <div class="note">🔒 דמו שרץ במכשיר שלך בלבד — הנתונים נשמרים מקומית, שום מידע לא נשלח החוצה.</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="section-title">🧾 חשבוניות</div>
+    <div class="cards" id="rows"></div>
+  </section>
+
+  <!-- Outbox -->
+  <section id="t-outbox" class="hide">
+    <div class="btn-row" style="margin-bottom:10px">
+      <div class="section-title" style="margin:0;flex:1">✉️ תזכורות להיום <span class="muted small" id="src"></span></div>
+      <button class="btn-soft" id="btnSentAll">סמן הכל כנשלח</button>
+    </div>
+    <div id="outbox"></div>
+  </section>
+
+  <!-- Billing -->
+  <section id="t-billing" class="hide">
+    <div class="panel">
+      <div class="section-title">💰 חיוב (success-fee)</div>
+      <div class="grid2">
+        <div class="field"><label>שיעור עמלה %</label><input id="rate" type="number" value="12"></div>
+        <div class="field"><label>מתאריך</label><input id="from" type="date"></div>
+        <div class="field"><label>עד תאריך</label><input id="to" type="date"></div>
+      </div>
+      <div class="btn-row"><button class="btn" id="btnBill">חשב</button><button class="btn-ghost" id="btnStatement">פתח דוח חיוב</button></div>
+      <div id="billbox" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="t-settings" class="hide">
+    <div class="panel">
+      <div class="section-title">⚙️ הגדרות מותג</div>
+      <div class="field"><label>שם העסק</label><input id="s_name" placeholder="שם הסוכנות"></div>
+      <div class="grid2">
+        <div class="field"><label>שם החותם</label><input id="s_signer" placeholder="מי חותם על התזכורת"></div>
+        <div class="field"><label>אימייל לתשובות (Reply-To)</label><input id="s_reply" placeholder="billing@agency.com"></div>
+      </div>
+      <div class="field"><label>טון ההודעות</label><select id="s_tone"><option value="friendly">ידידותי</option><option value="formal">רשמי</option><option value="firm">נחרץ</option></select></div>
+      <button class="btn" id="btnSaveSettings">שמור</button>
+    </div>
+  </section>
+
+  <!-- Import -->
+  <section id="t-import" class="hide">
+    <div class="panel">
+      <div class="section-title">⬆️ ייבוא חשבוניות</div>
+      <p class="muted small" style="margin-top:0">הדבק CSV עם הכותרות: id, customerName, customerEmail, amount, currency, issueDate, dueDate, status, lang</p>
+      <textarea id="csv" class="box" placeholder="id,customerName,...&#10;INV-1001,מאיה,maya@x.com,12000,ILS,2026-04-01,2026-05-01,open,he"></textarea>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn" id="btnImport">ייבא</button>
+        <button class="btn-ghost" id="btnLoadSample">טען נתוני דמו</button>
+        <button class="btn-ghost" id="btnReport">פתח ניתוח-גבייה</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>InvoiceChaser · MVP · גרסת-דפדפן</footer>
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
