@@ -1,0 +1,17 @@
+# Render Blueprint — one-click online deploy of the InvoiceChaser dashboard.
+# Native Node runtime (zero dependencies, no build step, no Docker needed).
+# To use: on Render → New → Blueprint → connect this repo/branch → Apply.
+services:
+  - type: web
+    name: invoicechaser-dashboard
+    runtime: node
+    rootDir: invoicechaser/core
+    plan: free
+    buildCommand: node -e "console.log('InvoiceChaser: zero dependencies — no build step needed')"
+    # Seed a demo agency on first boot (if missing), then start the server.
+    # Render injects $PORT, which the server reads automatically.
+    startCommand: >-
+      sh -c "[ -f data/Demo.json ] || node src/operator-cli.mjs import data/Demo.json samples/invoices.csv --name='Studio Pixel (Demo)' --signer='רותם לוי' --reply='billing@pixel.co.il'; node src/server.mjs data"
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

@@ -378,7 +378,8 @@ loadClients().then(refresh);
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const target = args.find((a) => !a.startsWith("--")) || "ws.json";
-  const PORT = Number((args.find((a) => a.startsWith("--port=")) || "--port=3000").split("=")[1]);
+  const portArg = args.find((a) => a.startsWith("--port="));
+  const PORT = Number(portArg ? portArg.split("=")[1] : process.env.PORT || 3000);
   makeServer(target).listen(PORT, () =>
     console.log(`InvoiceChaser dashboard → http://localhost:${PORT}  (${target})`)
   );

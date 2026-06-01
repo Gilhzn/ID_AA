@@ -1,0 +1,11 @@
+**/node_modules
+**/*.local.json
+**/ws.json
+**/*-demo.json
+**/workspaces
+**/outbox
+web
+docs
+gtm
+core/test
+core/samples/sample-report.html

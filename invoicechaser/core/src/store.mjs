@@ -2,7 +2,8 @@
 // A workspace holds the brand profile, the invoices, and an append-only event log.
 // Zero dependencies. In the product this becomes Postgres (docs/09 §9.4).
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 /**
  * @typedef {Object} Workspace
@@ -48,8 +49,10 @@ export function loadWorkspace(path) {
   return raw;
 }
 
-/** Persist a workspace to a JSON file (dates serialized as ISO). */
+/** Persist a workspace to a JSON file (dates serialized as ISO). Creates the parent dir if needed. */
 export function saveWorkspace(path, ws) {
+  const dir = dirname(path);
+  if (dir && dir !== "." && !existsSync(dir)) mkdirSync(dir, { recursive: true });
   const serializable = {
     ...ws,
     invoices: ws.invoices.map((i) => ({

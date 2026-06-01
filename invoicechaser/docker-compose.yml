@@ -1,0 +1,9 @@
+# Local one-command run: `docker compose up` → http://localhost:3000
+services:
+  dashboard:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./_data:/data
+    restart: unless-stopped
