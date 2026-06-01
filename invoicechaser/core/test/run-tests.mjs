@@ -362,5 +362,31 @@ await (async () => {
     }
   });
 
+  await testAsync("multi-client mode: isolated workspaces per agency", async () => {
+    const dir = join(tmpdir(), `ic-clients-${Date.now()}`);
+    const srv = makeServer(dir);
+    await new Promise((r) => srv.listen(0, r));
+    const base = `http://localhost:${srv.address().port}`;
+    const post = (p, b) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
+    const get = (p) => fetch(base + p).then((r) => r.json());
+    try {
+      await post("/api/clients", { name: "Alpha" });
+      await post("/api/clients", { name: "Beta" });
+      const list = await get("/api/clients");
+      assert.equal(list.mode, "multi");
+      assert.deepEqual(list.clients.sort(), ["Alpha", "Beta"]);
+
+      const csv = readFileSync(join(import.meta.dirname, "..", "samples", "invoices.csv"), "utf8");
+      await post("/api/import", { client: "Alpha", csv });
+      const a = await get("/api/state?client=Alpha&today=2026-05-31");
+      const b = await get("/api/state?client=Beta&today=2026-05-31");
+      assert.equal(a.invoices.length, 7); // Alpha got the data
+      assert.equal(b.invoices.length, 0); // Beta stays isolated/empty
+    } finally {
+      await new Promise((r) => srv.close(r));
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   console.log(`\n${passed} checks passed.`);
 })();

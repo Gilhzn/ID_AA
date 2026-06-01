@@ -94,21 +94,29 @@ node src/operator-cli.mjs bill   $WS --rate=12 --from=2026-06-01 --to=2026-06-30
 | `src/server.mjs` | dashboard web + JSON API (אפס-תלויות) |
 | `src/report.mjs` + `report-cli.mjs` | דוח-שחזור-תזרים (HTML) ל"ניתוח חינם" |
 
-## Dashboard (שרת web אפס-תלויות)
+## Dashboard (שרת web אפס-תלויות, רב-לקוחות)
 
-ממשק חזותי מעל המנוע — רץ עם `node` בלבד (מודול `http` המובנה), בלי build ובלי npm.
+ממשק חזותי מלוטש מעל המנוע — רץ עם `node` בלבד (מודול `http` המובנה), בלי build ובלי npm.
 
 ```bash
-# (אם צריך) זרע workspace מ-CSV
-node src/operator-cli.mjs import ws.json samples/invoices.csv --name="Pixel & Co." --signer="רותם"
-# הפעל את הלוח
-node src/server.mjs ws.json --port=3000      # → http://localhost:3000
+# מצב לקוח-יחיד (קובץ אחד)
+node src/server.mjs ws.json --port=3000           # → http://localhost:3000
+
+# מצב רב-לקוחות (תיקייה — קובץ JSON לכל סוכנות, מתג-לקוח בראש הדף)
+node src/server.mjs ./workspaces --port=3000
 ```
 
-הלוח מציג: KPIs (נגבה/מזכה/ימים-עד-תשלום/פתוח-באיחור), טבלת-חשבוניות עם aging,
-ה-**Outbox** של היום עם תזכורות מנוסחות + כפתור "סמן כנשלח", פעולות "שולם"/"מחלוקת",
-וייבוא CSV מהדפדפן. עם `ANTHROPIC_API_KEY` — ה-Outbox מנוסח ע"י Claude (אחרת תבנית).
-ה-API: `GET /api/state`, `GET /api/outbox`, `POST /api/{sent,sent-all,pay,dispute,import}`.
+**מה יש בלוח (טאבים):**
+- **סקירה** — KPIs (נגבה/מזכה/ימים-עד-תשלום/פתוח-באיחור/בתור), טבלת-חשבוניות עם aging, ופעולות "שולם"/"מחלוקת".
+- **Outbox** — התזכורות של היום, **ניתנות-לעריכה** לפני שליחה, עם "העתק" ו"סמן כנשלח".
+- **חיוב** — success-fee לפי שיעור/טווח-תאריכים + הורדת דוח-חיוב HTML.
+- **הגדרות** — עריכת מותג (שם, חותם, reply-to, טון) ושמירה.
+- **ייבוא** — הדבקת CSV + הורדת "ניתוח-גבייה" HTML.
+- בראש: **מתג-לקוח** (+ "לקוח חדש"), בורר תאריך, ומצב approval/auto.
+
+עם `ANTHROPIC_API_KEY` ה-Outbox מנוסח ע"י Claude (אחרת תבנית). ה-API:
+`/api/clients`, `/api/state`, `/api/outbox`, `/api/settings`, `/api/billing`,
+`/api/statement`, `/api/report`, ו-`POST /api/{sent,sent-all,pay,dispute,import,clients,settings}`.
 
 ## הצעד הבא (לא בליבה הזו)
 - מעטפת web (Next.js) + DB (Postgres) לפי [`../docs/09-architecture.md`](../docs/09-architecture.md).
