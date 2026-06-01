@@ -1,5 +1,5 @@
 // InvoiceChaser — static browser app. Runs the SAME engine as the Node version,
-// but stores data in localStorage (no server). Deployed to GitHub Pages.
+// storing data in localStorage (no server). Deployed to GitHub Pages.
 // Engine modules are copied to ./engine/ by the deploy workflow.
 
 import { decideNextAction } from "./engine/cadence.mjs";
@@ -41,7 +41,15 @@ const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt
 const curClient = () => $("#client").value;
 const today = () => new Date($("#today").value);
 const mode = () => $("#mode").value;
-function badge(s, d) { if (s === "paid") return "paid"; if (s === "disputed") return "disputed"; if (d > 14) return "late"; if (d > 0) return "due"; return "ok"; }
+
+function statusChip(status, d) {
+  if (status === "paid") return { cls: "paid", txt: "שולם" };
+  if (status === "disputed") return { cls: "disputed", txt: "במחלוקת" };
+  if (d > 14) return { cls: "late", txt: "באיחור" };
+  if (d > 0) return { cls: "due", txt: "מתעכב" };
+  return { cls: "ok", txt: "תקין" };
+}
+const ACTION_LABEL = { approve: "ממתין לאישור", send: "מוכן לשליחה", wait: "בהמתנה", stop: "—" };
 
 const SAMPLE = `id,customerName,customerEmail,amount,currency,issueDate,dueDate,status,lang
 INV-1042,מאיה לוי,maya@brightside.example,18000,ILS,2026-04-01,2026-05-01,open,he
@@ -53,13 +61,15 @@ INV-1047,Tom Becker,tom@vertex.example,33000,USD,2026-03-01,2026-04-01,open,en
 INV-1048,נועה ברק,noa@loft.example,12000,ILS,2026-04-25,2026-05-25,paid,he`;
 
 // ---------- tabs ----------
-const TABS = [["overview", "סקירה"], ["outbox", "Outbox"], ["billing", "חיוב"], ["settings", "הגדרות"], ["import", "ייבוא"]];
+const TABS = [["overview", "סקירה", "📊"], ["outbox", "Outbox", "✉️"], ["billing", "חיוב", "💰"], ["settings", "הגדרות", "⚙️"], ["import", "ייבוא", "⬆️"]];
 function drawTabs(active) {
-  $("#tabs").innerHTML = TABS.map((t) => `<div class="tab${t[0] === active ? " on" : ""}" data-tab="${t[0]}">${t[1]}</div>`).join("");
+  $("#tabs").innerHTML = TABS.map((t) =>
+    `<button class="tab${t[0] === active ? " on" : ""}" data-tab="${t[0]}"><span class="ico">${t[2]}</span><span>${t[1]}</span></button>`
+  ).join("");
   TABS.forEach((t) => { $("#t-" + t[0]).className = t[0] === active ? "" : "hide"; });
   $("#tabs").querySelectorAll(".tab").forEach((el) => el.addEventListener("click", () => go(el.dataset.tab)));
 }
-function go(t) { drawTabs(t); if (t === "billing") loadBilling(); if (t === "settings") loadSettings(); }
+function go(t) { drawTabs(t); if (t === "billing") loadBilling(); if (t === "settings") loadSettings(); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
 // ---------- clients ----------
 function refreshClients() {
@@ -68,10 +78,10 @@ function refreshClients() {
   const sel = $("#client"), cur = sel.value;
   sel.innerHTML = l.map((c) => `<option>${esc(c)}</option>`).join("");
   if (cur && l.includes(cur)) sel.value = cur;
-  $("#hint").textContent = l.length + " לקוחות";
+  $("#hint").textContent = l.length > 1 ? l.length + " לקוחות · נשמר במכשיר" : "נשמר במכשיר";
 }
 function newClient() {
-  const n = prompt("שם הלקוח/סוכנות:");
+  const n = prompt("שם הלקוח / סוכנות:");
   if (!n) return;
   ensureClient(n); refreshClients(); $("#client").value = n; render();
 }
@@ -105,30 +115,39 @@ async function render() {
   $("#kpis").innerHTML = [
     ["נגבה ע\"י המערכת", m.creditable.toLocaleString(), "hl"],
     ["סה\"כ נגבה", m.collected.toLocaleString(), ""],
-    ["ימים-עד-תשלום", m.avgDaysToPay == null ? "—" : m.avgDaysToPay, ""],
-    ["פתוח באיחור", m.openOverdueAmount.toLocaleString() + " (" + m.openOverdueCount + ")", ""],
-    ["בתור היום", dueSteps(ws, t, md).length, ""],
+    ["ימים עד תשלום", m.avgDaysToPay == null ? "—" : m.avgDaysToPay, ""],
+    ["פתוח באיחור", m.openOverdueAmount.toLocaleString(), ""],
+    ["בתור להיום", dueSteps(ws, t, md).length, ""],
   ].map((k) => `<div class="kpi ${k[2]}"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join("");
 
-  $("#rows").innerHTML = ws.invoices.map((i) => {
-    const d = daysOverdue(i, t), dec = decideNextAction(i, t, md);
-    const act = i.status === "open"
-      ? `<button class="ghost sm" data-pay="${i.id}" data-amt="${i.amount}">שולם</button> <button class="ghost sm" data-disp="${i.id}">מחלוקת</button>`
-      : "";
-    return `<tr><td>${esc(i.id)}</td><td>${esc(i.customerName)}</td><td class="num">${esc(formatMoney(i.amount, i.currency))}</td><td class="num">${d >= 0 ? "+" : ""}${d}</td><td><span class="badge ${badge(i.status, d)}">${i.status}</span></td><td class="muted">${dec.action}${dec.step ? " (" + dec.step.key + ")" : ""}</td><td>${act}</td></tr>`;
-  }).join("");
-  $("#rows").querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => pay(b.dataset.pay, Number(b.dataset.amt))));
-  $("#rows").querySelectorAll("[data-disp]").forEach((b) => b.addEventListener("click", () => disp(b.dataset.disp)));
+  if (ws.invoices.length === 0) {
+    $("#rows").innerHTML = `<div class="empty panel"><div class="big">🗂️</div><div>אין עדיין חשבוניות ללקוח הזה.</div>
+      <div class="btn-row" style="justify-content:center;margin-top:12px"><button class="btn" id="emptyLoad">טען נתוני דמו</button></div></div>`;
+    const el = $("#emptyLoad"); if (el) el.addEventListener("click", () => { importCsv(curClient(), SAMPLE); render(); });
+  } else {
+    $("#rows").innerHTML = ws.invoices.map((i) => {
+      const d = daysOverdue(i, t), dec = decideNextAction(i, t, md), ch = statusChip(i.status, d);
+      const daysLbl = d >= 0 ? `+${d} ימים` : `בעוד ${-d} ימים`;
+      const actions = i.status === "open"
+        ? `<div class="inv-actions"><button class="btn-soft" data-pay="${i.id}" data-amt="${i.amount}">סומן כשולם</button><button class="btn-soft" data-disp="${i.id}">מחלוקת</button></div>`
+        : "";
+      return `<article class="inv"><div class="inv-top"><div><div class="inv-name">${esc(i.customerName)}</div><div class="muted small">${esc(i.id)}</div></div><span class="chip ${ch.cls}">${ch.txt}</span></div>
+        <div class="inv-amt">${esc(formatMoney(i.amount, i.currency))}</div>
+        <div class="inv-meta">${daysLbl} · ${ACTION_LABEL[dec.action]}</div>${actions}</article>`;
+    }).join("");
+    $("#rows").querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => pay(b.dataset.pay, Number(b.dataset.amt))));
+    $("#rows").querySelectorAll("[data-disp]").forEach((b) => b.addEventListener("click", () => disp(b.dataset.disp)));
+  }
 
   const outbox = await buildOutbox(ws, t, md);
-  $("#src").textContent = "[" + (outbox[0]?.draft?.source || "template") + "]";
+  $("#src").textContent = outbox.length ? "· ניסוח: " + (outbox[0]?.draft?.source || "template") : "";
   $("#outbox").innerHTML = outbox.length ? outbox.map((o, idx) =>
-    `<div class="msg"><div class="row"><b class="grow">${esc(o.invoice.id)} → ${esc(o.invoice.customerName)}</b>${o.decision.action === "approve" ? '<span class="badge due">דורש אישור</span>' : ""}</div>
-     <div class="muted">${esc(o.invoice.customerEmail)} · ${o.decision.step.key} · נושא: ${esc(o.draft.subject)}</div>
+    `<div class="msg"><div class="msg-head"><b>${esc(o.invoice.id)} · ${esc(o.invoice.customerName)}</b>${o.decision.action === "approve" ? '<span class="chip due">דורש אישור</span>' : '<span class="chip ok">מוכן</span>'}</div>
+     <div class="sub">${esc(o.invoice.customerEmail)} · ${o.decision.step.key} · ${esc(o.draft.subject)}</div>
      <textarea id="ob${idx}">${esc(o.draft.body)}</textarea>
-     <div class="row" style="margin-top:6px"><button class="sm" data-copy="${idx}">העתק</button> <button class="ghost sm" data-sent="${o.invoice.id}" data-step="${o.decision.step.key}">סמן כנשלח</button></div></div>`
-  ).join("") : '<p class="muted">אין הודעות לשליחה.</p>';
-  $("#outbox").querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => { const ta = $("#ob" + b.dataset.copy); ta.select(); navigator.clipboard && navigator.clipboard.writeText(ta.value); }));
+     <div class="btn-row" style="margin-top:8px"><button class="btn-soft" data-copy="${idx}">העתק</button><button class="btn-soft" data-sent="${o.invoice.id}" data-step="${o.decision.step.key}">סמן כנשלח</button></div></div>`
+  ).join("") : `<div class="empty panel"><div class="big">✅</div><div>אין תזכורות לשליחה היום — הכל מעודכן.</div></div>`;
+  $("#outbox").querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => { const ta = $("#ob" + b.dataset.copy); ta.select(); navigator.clipboard && navigator.clipboard.writeText(ta.value); b.textContent = "הועתק ✓"; setTimeout(() => (b.textContent = "העתק"), 1200); }));
   $("#outbox").querySelectorAll("[data-sent]").forEach((b) => b.addEventListener("click", () => markSent(b.dataset.sent, b.dataset.step)));
 }
 
@@ -145,20 +164,27 @@ function loadBilling() {
   $("#billbox").innerHTML =
     `<div class="kpis"><div class="kpi"><div class="v">${s.collectedTotal.toLocaleString()}</div><div class="l">סך נגבה</div></div>
      <div class="kpi"><div class="v">${s.creditableTotal.toLocaleString()}</div><div class="l">מזכה</div></div>
-     <div class="kpi hl"><div class="v">${s.fee.toLocaleString()} ${s.currency}</div><div class="l">לחיוב</div></div></div>
-     <table><thead><tr><th>חשבונית</th><th>לקוח</th><th>סכום</th><th>תאריך</th><th>מזכה</th><th>עמלה</th></tr></thead><tbody>` +
-    s.lineItems.map((li) => `<tr><td>${esc(li.invoiceId)}</td><td>${esc(li.customerName)}</td><td class="num">${li.amount.toLocaleString()}</td><td class="num">${li.paidAt}</td><td>${li.creditable ? "✓" : "—"}</td><td class="num">${li.fee.toLocaleString()}</td></tr>`).join("") +
-    "</tbody></table>";
+     <div class="kpi hl"><div class="v">${s.fee.toLocaleString()} ${s.currency}</div><div class="l">לחיוב</div></div></div>` +
+    (s.lineItems.length ? `<div class="cards">` + s.lineItems.map((li) =>
+      `<article class="inv"><div class="inv-top"><div><div class="inv-name">${esc(li.customerName)}</div><div class="muted small">${esc(li.invoiceId)} · ${li.paidAt}</div></div><span class="chip ${li.creditable ? "ok" : "paid"}">${li.creditable ? "מזכה" : "ללא עמלה"}</span></div>
+        <div class="inv-meta">שולם: ${li.amount.toLocaleString()} · עמלה: <b>${li.fee.toLocaleString()}</b></div></article>`).join("") + `</div>`
+      : `<p class="muted small">אין תשלומים בטווח שנבחר.</p>`);
 }
-function openHtml(content) { const w = window.open("", "_blank"); if (w) { w.document.write(content); w.document.close(); } }
+function openHtml(content) { const w = window.open("", "_blank"); if (w) { w.document.write(content); w.document.close(); } else { alert("חלון קופץ נחסם — אפשר חלונות קופצים לאתר."); } }
 function openStatement() { const ws = loadWs(curClient()); openHtml(renderStatement(computeBilling(ws, { ratePct: Number($("#rate").value || 12), from: $("#from").value || undefined, to: $("#to").value || undefined }))); }
 function openReport() { const ws = loadWs(curClient()); openHtml(renderReport(ws.invoices, ws.brand, today())); }
 
 function loadSettings() { const b = loadWs(curClient()).brand; $("#s_name").value = b.businessName || ""; $("#s_signer").value = b.signerName || ""; $("#s_reply").value = b.replyTo || ""; $("#s_tone").value = b.tone || "friendly"; }
-function saveSettings() { withWs((ws) => { ws.brand.businessName = $("#s_name").value; ws.brand.signerName = $("#s_signer").value; ws.brand.replyTo = $("#s_reply").value; ws.brand.tone = $("#s_tone").value; }); refreshClients(); alert("נשמר"); }
+function saveSettings() { withWs((ws) => { ws.brand.businessName = $("#s_name").value; ws.brand.signerName = $("#s_signer").value; ws.brand.replyTo = $("#s_reply").value; ws.brand.tone = $("#s_tone").value; }); refreshClients(); flash("ההגדרות נשמרו"); }
 
-function doImport() { const added = importCsv(curClient(), $("#csv").value); alert("נוספו " + added); $("#csv").value = ""; render(); }
-function loadSample() { const added = importCsv(curClient(), SAMPLE); alert("נטענו " + added + " חשבוניות דמו"); render(); }
+function doImport() { const added = importCsv(curClient(), $("#csv").value); flash("נוספו " + added + " חשבוניות"); $("#csv").value = ""; go("overview"); render(); }
+function loadSample() { const added = importCsv(curClient(), SAMPLE); flash("נטענו " + added + " חשבוניות דמו"); go("overview"); render(); }
+
+function flash(msg) {
+  let t = $("#toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.style.cssText = "position:fixed;inset-inline:0;bottom:90px;margin:auto;width:max-content;max-width:90vw;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;font-size:13px;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:opacity .2s"; document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity = "1"; clearTimeout(t._h); t._h = setTimeout(() => (t.style.opacity = "0"), 1600);
+}
 
 // ---------- wire up ----------
 $("#client").addEventListener("change", render);
