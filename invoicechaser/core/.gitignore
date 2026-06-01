@@ -1,0 +1,7 @@
+# Runtime artifacts created when operating the tool (not source).
+ws.json
+*-demo.json
+workspaces/
+outbox/
+outbox-*/
+*.local.json
