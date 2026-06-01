@@ -1,8 +1,13 @@
 name: Deploy InvoiceChaser dashboard
 
-# Publishes the static, browser-only InvoiceChaser dashboard to GitHub Pages.
-# The app runs the same engine as the Node version, with data stored in the
-# browser (localStorage) — no server required.
+# Publishes the static, browser-only InvoiceChaser dashboard to the `gh-pages`
+# branch. We publish to a branch (instead of the github-pages *environment*)
+# so the deploy works from this feature branch — the environment route is
+# restricted to the default branch by environment protection rules.
+#
+# One-time setup after the first run:
+#   Settings → Pages → Build and deployment → Source: "Deploy from a branch"
+#   → Branch: gh-pages  /(root)  → Save.   URL: https://gilhzn.github.io/id_aa/
 
 on:
   push:
@@ -14,16 +19,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write # needed to push the built site to the gh-pages branch
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,18 +39,11 @@ jobs:
           cp invoicechaser/core/src/*.mjs site/engine/
           touch site/.nojekyll
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy dashboard (${{ github.sha }})"

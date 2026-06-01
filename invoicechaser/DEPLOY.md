@@ -1,59 +1,65 @@
 # פריסה אונליין — InvoiceChaser
 
-שלוש דרכים לקבל את הדשבורד אונליין. כולן מהריפו הזה.
+שלוש דרכים לקבל את הדשבורד אונליין. כל אחת דורשת **הגדרה חד-פעמית אחת** שלך
+(אי-אפשר להפעיל אירוח/Pages דרך push בלבד).
 
 ---
 
-## אופציה 1 — Render (הכי מהיר לאונליין, ללא Docker, חינם) ⭐
+## אופציה 1 — GitHub Pages (חינם, כבר מוגדר ב-workflow) ⭐
 
-הדשבורד הוא Node אפס-תלויות — Render בונה ומריץ אותו ישירות.
+ה-workflow [`deploy-dashboard.yml`](../.github/workflows/deploy-dashboard.yml) בונה את
+גרסת-הדפדפן ודוחף אותה לברנץ **`gh-pages`** בכל push (כך זה עוקף את חוקי
+"environment protection" שחסמו את הפריסה מהברנץ הזה).
 
-1. היכנס ל-[render.com](https://render.com) → **New → Blueprint**.
-2. חבר את הריפו `gilhzn/id_aa` ובחר את הברנץ `claude/app-feature-spec-BUHh4`.
-3. Render יקרא את [`render.yaml`](../render.yaml) שבשורש → **Apply**.
-4. תוך 1–2 דקות תקבל URL ציבורי כמו `https://invoicechaser-dashboard.onrender.com`.
-
-(הדמו נזרע אוטומטית עם סוכנות "Studio Pixel (Demo)" + 7 חשבוניות.)
-
----
-
-## אופציה 2 — Docker (להרצה על המחשב שלך או על כל הוסט)
-
-```bash
-cd invoicechaser
-docker compose up --build          # → http://localhost:3000
-# או ידנית:
-docker build -t invoicechaser .
-docker run -p 3000:3000 -v "$PWD/_data:/data" invoicechaser
-```
-האימג' מבוסס `node:22-alpine`, מריץ את שרת-הדשבורד ב-multi-client, ושומר
-workspaces ב-volume `/data`. לפריסה על Fly.io / Railway / כל ענן — דחוף את
-האימג' הזה.
-
-> הערה: ה-image נבדק לוגית; הבנייה דורשת גישה ל-Docker Hub (לא הייתה זמינה
-> בסביבת-הפיתוח האוטומטית, ולכן נבנה אצלך/אצל ההוסט).
-
----
-
-## אופציה 3 — GitHub Pages (גרסת-דפדפן סטטית, חינם)
-
-גרסה שרצה כולה בדפדפן (אחסון localStorage). ה-workflow
-[`deploy-dashboard.yml`](../.github/workflows/deploy-dashboard.yml) מפרסם אותה.
-
-הפעלה חד-פעמית בריפו:
-1. **Settings → Pages → Source: GitHub Actions**.
-2. **Settings → Environments → github-pages → Deployment branches** → הוסף את
-   הברנץ הנוכחי (או "All branches").
-3. **Actions → Deploy InvoiceChaser dashboard → Run**.
-4. הלינק: `https://gilhzn.github.io/id_aa/`.
+**הגדרה חד-פעמית (~30 שניות):**
+1. ודא שה-workflow רץ פעם אחת (Actions → "Deploy InvoiceChaser dashboard" → Run,
+   או כל push) — הוא יוצר את ברנץ `gh-pages`.
+2. **Settings → Pages → Build and deployment → Source: "Deploy from a branch"**
+   → Branch: **`gh-pages`** → תיקייה: **`/ (root)`** → **Save**.
+3. תוך דקה: **https://gilhzn.github.io/id_aa/**
 
 (ריפו פרטי דורש מנוי בתשלום ל-Pages; ריפו ציבורי — חינם.)
 
 ---
 
-## הרצה מקומית מהירה (בלי Docker, בלי שום הגדרה)
+## אופציה 2 — Render (Static Site, חינם, בלי כרטיס-אשראי)
+
+הדשבורד הוא סטטי → אתר-סטטי ב-Render, בלי שרת ובלי build כבד.
+
+1. [render.com](https://render.com) → **New → Blueprint**.
+2. חבר את `gilhzn/id_aa`, ברנץ `claude/app-feature-spec-BUHh4`.
+3. Render קורא את [`render.yaml`](../render.yaml) (בונה דרך `web/build-static.sh`)
+   → **Apply**.
+4. תוך 1–2 דקות: URL כמו `https://invoicechaser-dashboard.onrender.com`.
+
+> שתי האופציות לעיל מגישות את **גרסת-הדפדפן** (אחסון localStorage, כולל כפתור
+> "טען נתוני דמו"). אין שרת — מושלם לדמו ולשיתוף לינק.
+
+---
+
+## אופציה 3 — Docker (גרסת-שרת מלאה, לאירוח-עצמי / כל ענן)
+
+לגרסה עם **שרת + שמירת-נתונים מתמשכת + ריבוי-לקוחות אמיתי**:
+
 ```bash
+cd invoicechaser
+docker compose up --build          # → http://localhost:3000
+# או:
+docker build -t invoicechaser . && docker run -p 3000:3000 -v "$PWD/_data:/data" invoicechaser
+```
+לפריסה בענן: דחוף את האימג' ל-Fly.io / Railway / Render (Web Service · Docker).
+האימג' מבוסס `node:22-alpine`, מריץ `server.mjs` ב-multi-client על `/data`.
+
+---
+
+## הרצה מקומית מהירה (בלי שום הגדרה)
+```bash
+# גרסת-דפדפן סטטית:
+sh invoicechaser/web/build-static.sh && cd invoicechaser/web/public && python3 -m http.server 8000
+#   → http://localhost:8000
+
+# או גרסת-השרת המלאה:
 cd invoicechaser/core
 node src/operator-cli.mjs import data/Demo.json samples/invoices.csv --name="Demo"
-node src/server.mjs data            # → http://localhost:3000
+node src/server.mjs data           # → http://localhost:3000
 ```
