@@ -5,3 +5,7 @@ workspaces/
 outbox/
 outbox-*/
 *.local.json
+
+# server multi-client data dir
+data/
+Demo.json
