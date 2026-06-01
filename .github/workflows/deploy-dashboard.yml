@@ -7,7 +7,7 @@ name: Deploy InvoiceChaser dashboard
 #
 # One-time setup after the first run:
 #   Settings → Pages → Build and deployment → Source: "Deploy from a branch"
-#   → Branch: gh-pages  /(root)  → Save.   URL: https://gilhzn.github.io/id_aa/
+#   → Branch: gh-pages  /(root)  → Save.   URL: https://gilhzn.github.io/ID_AA/
 
 on:
   push:

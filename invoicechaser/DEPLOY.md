@@ -16,7 +16,7 @@
    או כל push) — הוא יוצר את ברנץ `gh-pages`.
 2. **Settings → Pages → Build and deployment → Source: "Deploy from a branch"**
    → Branch: **`gh-pages`** → תיקייה: **`/ (root)`** → **Save**.
-3. תוך דקה: **https://gilhzn.github.io/id_aa/**
+3. תוך דקה: **https://gilhzn.github.io/ID_AA/**
 
 (ריפו פרטי דורש מנוי בתשלום ל-Pages; ריפו ציבורי — חינם.)
 
